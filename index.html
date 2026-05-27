@@ -11,7 +11,7 @@
      (Directions API NÃO é necessária nesta versão)
      ============================================================ -->
 <script>
-  const GOOGLE_MAPS_API_KEY = "AIzaSyDV0mCmgTeX_SzMaiuyqOpEUe8SLF2xklI";
+  const GOOGLE_MAPS_API_KEY = "AIzaSyAn5U4VNYLho20dpREvU7R0SHkxu1CBlAo";
 </script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -242,7 +242,7 @@
 
     <div id="apiWarning" class="api-warning" style="display:none">
       <b>⚠ Chave do Google Maps não configurada</b><br>
-      Abra este arquivo HTML em um editor de texto e substitua <code>AIzaSyDV0mCmgTeX_SzMaiuyqOpEUe8SLF2xklI</code> pela sua chave da API do Google Maps (linha próxima do topo). Depois salve e recarregue a página.
+      Abra este arquivo HTML em um editor de texto e substitua <code>AIzaSyAn5U4VNYLho20dpREvU7R0SHkxu1CBlAo</code> pela sua chave da API do Google Maps (linha próxima do topo). Depois salve e recarregue a página.
     </div>
 
     <div class="drop-zone" id="dropZone">
@@ -334,7 +334,7 @@ let apiCarregada = false;
    GOOGLE MAPS LOADER
    ========================================================== */
 function carregarGoogleMaps(){
-  if(!GOOGLE_MAPS_API_KEY || GOOGLE_MAPS_API_KEY === "AIzaSyDV0mCmgTeX_SzMaiuyqOpEUe8SLF2xklI"){
+  if(!GOOGLE_MAPS_API_KEY || GOOGLE_MAPS_API_KEY === "AIzaSyAn5U4VNYLho20dpREvU7R0SHkxu1CBlAo"){
     document.getElementById('apiWarning').style.display = 'block';
     document.getElementById('dropZone').classList.add('disabled');
     document.getElementById('api-status').textContent = 'CHAVE NÃO CONFIGURADA';
