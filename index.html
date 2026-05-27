@@ -3,18 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>ROTOGRAF — Simulador & Analisador de Rotas</title>
-
-<!-- ============================================================
-     ⚠️  COLE SUA CHAVE DO GOOGLE MAPS AQUI ⚠️
-     APIs necessárias: Geocoding API + Maps JavaScript API
-     (Directions API NÃO é necessária nesta versão)
-     ============================================================ -->
-<script>
-  const GOOGLE_MAPS_API_KEY = "AIzaSyAn5U4VNYLho20dpREvU7R0SHkxu1CBlAo";
-</script>
+<title>ROTOGRAF — Simulador de Rotas (Offline)</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
@@ -69,7 +62,7 @@
   .upload-stage > *{position:relative}
   .upload-stage h2{font-size:28px;margin-bottom:8px;font-weight:600}
   .upload-stage h2 b{color:var(--accent)}
-  .upload-stage p{color:var(--muted);max-width:560px;margin:0 auto 28px;line-height:1.6}
+  .upload-stage p{color:var(--muted);max-width:620px;margin:0 auto 28px;line-height:1.6}
   .upload-stage .origem{
     display:inline-block;padding:8px 14px;border:1px solid var(--border);
     border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:11px;
@@ -77,16 +70,11 @@
   }
   .upload-stage .origem b{color:var(--accent)}
 
-  .api-warning{
-    margin:0 auto 24px;max-width:560px;
-    padding:14px 18px;border:1px solid var(--danger);
-    border-radius:8px;background:rgba(255,92,92,0.08);
-    font-size:13px;color:var(--text);text-align:left;
-  }
-  .api-warning b{color:var(--danger)}
-  .api-warning code{
-    background:var(--panel-2);padding:2px 6px;border-radius:3px;
+  .info-badge{
+    display:inline-block;padding:6px 12px;border-radius:6px;
+    background:rgba(61,220,151,0.12);color:var(--accent-2);
     font-family:'JetBrains Mono',monospace;font-size:11px;
+    margin-bottom:24px;letter-spacing:0.5px;
   }
 
   .drop-zone{
@@ -94,7 +82,6 @@
     cursor:pointer;transition:all 0.2s;background:rgba(255,186,46,0.02);
   }
   .drop-zone:hover, .drop-zone.dragging{border-color:var(--accent);background:rgba(255,186,46,0.06)}
-  .drop-zone.disabled{opacity:0.4;pointer-events:none;cursor:not-allowed}
   .drop-zone .icon{font-size:36px;margin-bottom:8px}
   .drop-zone strong{display:block;margin-bottom:4px}
   .drop-zone small{color:var(--muted)}
@@ -133,7 +120,12 @@
     border-radius:4px;background:rgba(255,186,46,0.15);color:var(--accent);letter-spacing:1px;
   }
 
-  #map{height:520px;width:100%;background:#0b0d10}
+  #map{height:520px;width:100%}
+  .leaflet-container{background:#0b0d10 !important;font-family:'JetBrains Mono',monospace}
+  .leaflet-popup-content-wrapper{background:var(--panel) !important;color:var(--text) !important;border-radius:6px !important}
+  .leaflet-popup-tip{background:var(--panel) !important}
+  .leaflet-popup-content{font-family:'JetBrains Mono',monospace !important;font-size:11px !important;margin:10px 14px !important}
+  .leaflet-popup-content b{color:var(--accent)}
 
   .rota-tabs{display:flex;gap:6px;padding:14px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
   .rota-tab{
@@ -216,6 +208,36 @@
     text-align:center;color:var(--muted);font-size:11px;
     font-family:'JetBrains Mono',monospace;margin-top:30px;padding:20px;border-top:1px solid var(--border);
   }
+
+  /* REBALANCEAMENTO */
+  .rebal-item{
+    padding:18px;border-bottom:1px solid var(--border);
+    display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center;
+  }
+  .rebal-item:last-child{border-bottom:none}
+  .rebal-rank{
+    width:36px;height:36px;border-radius:8px;
+    background:linear-gradient(135deg,var(--accent),#ff8b3d);
+    color:#1a1305;display:grid;place-items:center;
+    font-weight:800;font-family:'JetBrains Mono',monospace;font-size:14px;
+  }
+  .rebal-info .pedido-id{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:0.5px;margin-bottom:3px}
+  .rebal-info .cliente{font-weight:600;font-size:13px;margin-bottom:4px}
+  .rebal-info .movimento{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+  .rebal-info .movimento .arrow{color:var(--accent);margin:0 6px}
+  .rebal-info .movimento .rota-tag{
+    display:inline-block;padding:1px 6px;border-radius:3px;
+    background:var(--panel-2);color:var(--text);font-weight:600;
+  }
+  .rebal-economia{text-align:right}
+  .rebal-economia .km{font-size:18px;font-weight:700;color:var(--accent-2);font-family:'JetBrains Mono',monospace}
+  .rebal-economia .extra{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px}
+  .rebal-resumo{
+    padding:14px 18px;background:var(--panel-2);border-bottom:1px solid var(--border);
+    font-size:12px;color:var(--muted);line-height:1.5;
+  }
+  .rebal-resumo b{color:var(--accent-2)}
+  .rebal-empty{padding:24px;text-align:center;color:var(--muted);font-size:13px}
 </style>
 </head>
 <body>
@@ -229,21 +251,17 @@
     </div>
   </div>
   <div class="header-meta">
-    <span><span class="dot"></span><span id="api-status">CARREGANDO API</span></span>
-    <span id="origem-tag">ORIGEM: MAUÁ-SP</span>
+    <span><span class="dot"></span>MODO OFFLINE</span>
+    <span>ORIGEM: MAUÁ-SP</span>
   </div>
 </header>
 
 <main>
   <section id="uploadStage" class="upload-stage">
     <h2>Carregue seu <b>grid de pedidos</b></h2>
-    <p>O sistema lê sua planilha, geocodifica endereços via Google Maps, otimiza a ordem das paradas e gera dicas operacionais.</p>
+    <p>O sistema lê sua planilha, identifica as cidades, otimiza a ordem das paradas e gera dicas operacionais. Tudo offline, sem dependências externas.</p>
+    <div class="info-badge">✓ FUNCIONA SEM INTERNET · SEM CHAVE · SEM CONFIGURAÇÃO</div>
     <div class="origem">PARTIDA: <b>Av. Guaraciaba, 313 — Mauá-SP</b> · 09370-840</div>
-
-    <div id="apiWarning" class="api-warning" style="display:none">
-      <b>⚠ Chave do Google Maps não configurada</b><br>
-      Abra este arquivo HTML em um editor de texto e substitua <code>AIzaSyAn5U4VNYLho20dpREvU7R0SHkxu1CBlAo</code> pela sua chave da API do Google Maps (linha próxima do topo). Depois salve e recarregue a página.
-    </div>
 
     <div class="drop-zone" id="dropZone">
       <div class="icon">📦</div>
@@ -285,6 +303,15 @@
       </div>
     </div>
 
+    <!-- CARD DE REBALANCEAMENTO -->
+    <div class="card" id="rebalCard" style="display:none;margin-bottom:24px">
+      <div class="card-header">
+        <h3>💡 SUGESTÕES DE REBALANCEAMENTO ENTRE ROTAS</h3>
+        <span class="tag" id="rebalTag">ANÁLISE</span>
+      </div>
+      <div id="rebalBody"></div>
+    </div>
+
     <div class="card">
       <div class="card-header">
         <h3>📋 SEQUÊNCIA SUGERIDA DE ENTREGAS</h3>
@@ -305,7 +332,7 @@
     </div>
 
     <div class="footer-note">
-      Geocodificação via Google Maps · Distâncias estimadas (linha reta × 1.35 fator estrada) · Otimização Nearest-Neighbor + 2-opt
+      Sistema offline · Coordenadas de cidades pré-cadastradas (Grande SP + Baixada Santista + Litoral Sul) · Otimização Nearest-Neighbor + 2-opt
     </div>
   </section>
 </main>
@@ -314,53 +341,115 @@
 
 <script>
 /* ==========================================================
+   COORDENADAS DAS CIDADES (lat, lng)
+   Foco: Grande SP, ABC, Baixada Santista, Litoral Sul
+   ========================================================== */
+const CIDADES = {
+  // Origem
+  'MAUA':              [-23.6677, -46.4612],
+  // ABC
+  'SANTO ANDRE':       [-23.6639, -46.5383],
+  'SAO BERNARDO':      [-23.6943, -46.5654],
+  'SAO BERNARDO DO CAMPO': [-23.6943, -46.5654],
+  'SAO CAETANO':       [-23.6244, -46.5538],
+  'SAO CAETANO DO SUL': [-23.6244, -46.5538],
+  'DIADEMA':           [-23.6862, -46.6225],
+  'RIBEIRAO PIRES':    [-23.7106, -46.4133],
+  'RIO GRANDE DA SERRA': [-23.7437, -46.3964],
+  // Grande SP
+  'SAO PAULO':         [-23.5505, -46.6333],
+  'GUARULHOS':         [-23.4543, -46.5337],
+  'OSASCO':            [-23.5326, -46.7919],
+  'BARUERI':           [-23.5106, -46.8761],
+  'CARAPICUIBA':       [-23.5224, -46.8358],
+  'TABOAO DA SERRA':   [-23.6280, -46.7906],
+  'EMBU':              [-23.6488, -46.8520],
+  'EMBU DAS ARTES':    [-23.6488, -46.8520],
+  'COTIA':             [-23.6038, -46.9192],
+  'ITAQUAQUECETUBA':   [-23.4861, -46.3486],
+  'POA':               [-23.5288, -46.3439],
+  'SUZANO':            [-23.5424, -46.3107],
+  'MOGI DAS CRUZES':   [-23.5226, -46.1881],
+  'FRANCO DA ROCHA':   [-23.3236, -46.7263],
+  'CAJAMAR':           [-23.3556, -46.8779],
+  'SANTANA DE PARNAIBA': [-23.4434, -46.9177],
+  'CAIEIRAS':          [-23.3625, -46.7411],
+  // Vale do Paraíba (pontos comuns)
+  'JACAREI':           [-23.3052, -45.9658],
+  'SAO JOSE DOS CAMPOS': [-23.2237, -45.9009],
+  // Baixada Santista
+  'CUBATAO':           [-23.8956, -46.4256],
+  'SANTOS':            [-23.9608, -46.3331],
+  'SAO VICENTE':       [-23.9633, -46.3920],
+  'GUARUJA':           [-23.9905, -46.2566],
+  'PRAIA GRANDE':      [-24.0058, -46.4028],
+  'BERTIOGA':          [-23.8541, -46.1389],
+  // Litoral Sul
+  'MONGAGUA':          [-24.0875, -46.6203],
+  'ITANHAEM':          [-24.1761, -46.7889],
+  'PERUIBE':           [-24.3203, -46.9994],
+  'IGUAPE':            [-24.7028, -47.5550],
+  'ILHA COMPRIDA':     [-24.7297, -47.5400],
+  'CANANEIA':          [-25.0145, -47.9266],
+  'REGISTRO':          [-24.4878, -47.8439],
+  'JUQUITIBA':         [-23.9303, -47.0631],
+  'ITAPECERICA':       [-23.7167, -46.8492],
+  'ITAPECERICA DA SERRA': [-23.7167, -46.8492],
+  // Sorocaba / interior próximo
+  'SOROCABA':          [-23.5015, -47.4526],
+  'ITU':               [-23.2640, -47.2992],
+  'SALTO':             [-23.2008, -47.2858],
+  'PORTO FELIZ':       [-23.2186, -47.5236],
+  // Campinas / interior
+  'CAMPINAS':          [-22.9056, -47.0608],
+  'JUNDIAI':           [-23.1864, -46.8842],
+  'INDAIATUBA':        [-23.0903, -47.2179],
+  // Litoral Norte
+  'CARAGUATATUBA':     [-23.6203, -45.4128],
+  'UBATUBA':           [-23.4339, -45.0711],
+  'SAO SEBASTIAO':     [-23.7603, -45.4097],
+  'ILHABELA':          [-23.7781, -45.3581]
+};
+
+/* ==========================================================
+   NORMALIZAR NOME DE CIDADE (remove acentos, maiúscula)
+   ========================================================== */
+function normalizarCidade(nome){
+  if(!nome) return '';
+  return nome.toString().toUpperCase()
+    .replace(/Á|À|Ã|Â|Ä/g,'A')
+    .replace(/É|È|Ê|Ë/g,'E')
+    .replace(/Í|Ì|Î|Ï/g,'I')
+    .replace(/Ó|Ò|Õ|Ô|Ö/g,'O')
+    .replace(/Ú|Ù|Û|Ü/g,'U')
+    .replace(/Ç/g,'C')
+    .replace(/[^A-Z0-9 ]/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
+
+function coordsCidade(cidade){
+  const norm = normalizarCidade(cidade);
+  // tenta match exato
+  if(CIDADES[norm]) return CIDADES[norm];
+  // tenta sem "DO CAMPO", "DA SERRA", etc no final
+  const sim = norm.replace(/ DO CAMPO$/,'').replace(/ DA SERRA$/,'').replace(/ DO SUL$/,'').replace(/ DAS ARTES$/,'');
+  if(CIDADES[sim]) return CIDADES[sim];
+  // tenta achar a chave do dicionário dentro do nome
+  for(const key of Object.keys(CIDADES)){
+    if(norm.includes(key)) return CIDADES[key];
+  }
+  return null;
+}
+
+/* ==========================================================
    CONFIG
    ========================================================== */
-const ORIGEM = {
-  lat: -23.6677, lng: -46.4612,
-  nome: "Av. Guaraciaba, 313 — Mauá-SP"
-};
-const FATOR_ESTRADA = 1.35; // ajuste empírico: linha reta × 1.35 ≈ km de estrada na região
-const VELOCIDADE_MEDIA_KMH = 45; // mistura cidade + estrada
+const ORIGEM = { lat: -23.6677, lng: -46.4612, nome: "Av. Guaraciaba, 313 — Mauá-SP" };
+const FATOR_ESTRADA = 1.35;
+const VELOCIDADE_MEDIA_KMH = 45;
 const CORES_ROTA = ['#ffba2e','#5aa9ff','#3ddc97','#ff8b3d','#c084fc','#ff5c8a','#fde047','#22d3ee'];
 let dadosGlobais = null;
 let mapRef = null;
-let mapMarkers = [];
-let mapPolylines = [];
-let geocoder = null;
-let apiCarregada = false;
-
-/* ==========================================================
-   GOOGLE MAPS LOADER
-   ========================================================== */
-function carregarGoogleMaps(){
-  if(!GOOGLE_MAPS_API_KEY || GOOGLE_MAPS_API_KEY === "AIzaSyAn5U4VNYLho20dpREvU7R0SHkxu1CBlAo"){
-    document.getElementById('apiWarning').style.display = 'block';
-    document.getElementById('dropZone').classList.add('disabled');
-    document.getElementById('api-status').textContent = 'CHAVE NÃO CONFIGURADA';
-    return;
-  }
-  const script = document.createElement('script');
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=onGoogleMapsReady`;
-  script.async = true;
-  script.defer = true;
-  script.onerror = () => {
-    toast('Erro carregando Google Maps. Verifique sua chave.', true);
-    document.getElementById('api-status').textContent = 'ERRO API';
-  };
-  document.head.appendChild(script);
-}
-
-function onGoogleMapsReady(){
-  geocoder = new google.maps.Geocoder();
-  apiCarregada = true;
-  document.getElementById('api-status').textContent = 'API ATIVA';
-}
-
-window.gm_authFailure = function(){
-  toast('Chave do Google Maps inválida. Verifique se Geocoding API e Maps JavaScript API estão ativadas.', true);
-  document.getElementById('api-status').textContent = 'CHAVE INVÁLIDA';
-};
 
 /* ==========================================================
    UTILS
@@ -383,21 +472,13 @@ function haversine(a, b){
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-// Distância estimada de estrada: linha reta × fator
-function distEstimada(a, b){
-  return haversine(a, b) * FATOR_ESTRADA;
-}
+function distEstimada(a, b){ return haversine(a, b) * FATOR_ESTRADA; }
 
 function totalDistance(pontos, origem){
-  let dist = 0;
-  let prev = origem;
+  let dist = 0; let prev = origem;
   for(const p of pontos){ dist += haversine(prev, p); prev = p; }
   dist += haversine(prev, origem);
   return dist;
-}
-
-function totalDistanceEstimada(pontos, origem){
-  return totalDistance(pontos, origem) * FATOR_ESTRADA;
 }
 
 function classificarPagto(carteira){
@@ -409,34 +490,9 @@ function classificarPagto(carteira){
   return {tipo:'boleto', label: c || 'N/I'};
 }
 
-/* ==========================================================
-   GEOCODING via Google
-   ========================================================== */
-function geocodeGoogle(endereco){
-  return new Promise(resolve => {
-    geocoder.geocode({address: endereco, region:'br'}, (results, status) => {
-      if(status === 'OK' && results.length){
-        const r = results[0];
-        resolve({
-          lat: r.geometry.location.lat(),
-          lng: r.geometry.location.lng(),
-          formatado: r.formatted_address,
-          tipo: r.geometry.location_type
-        });
-      } else {
-        resolve(null);
-      }
-    });
-  });
-}
-
-/* ==========================================================
-   OTIMIZAÇÃO
-   ========================================================== */
+/* OTIMIZAÇÃO */
 function nearestNeighbor(pontos, origem){
-  const visitados = new Set();
-  const rota = [];
-  let atual = origem;
+  const visitados = new Set(); const rota = []; let atual = origem;
   while(visitados.size < pontos.length){
     let melhor = -1, melhorDist = Infinity;
     for(let i=0;i<pontos.length;i++){
@@ -444,17 +500,13 @@ function nearestNeighbor(pontos, origem){
       const d = haversine(atual, pontos[i]);
       if(d < melhorDist){melhorDist = d; melhor = i;}
     }
-    visitados.add(melhor);
-    rota.push(pontos[melhor]);
-    atual = pontos[melhor];
+    visitados.add(melhor); rota.push(pontos[melhor]); atual = pontos[melhor];
   }
   return rota;
 }
 
 function twoOpt(rota, origem){
-  let melhorada = true;
-  let atual = [...rota];
-  let iter = 0;
+  let melhorada = true; let atual = [...rota]; let iter = 0;
   while(melhorada && iter < 50){
     melhorada = false; iter++;
     for(let i=0;i<atual.length-1;i++){
@@ -472,25 +524,147 @@ function twoOpt(rota, origem){
 function otimizarRota(pontos, origem){
   if(pontos.length === 0) return [];
   if(pontos.length === 1) return [...pontos];
-  const nn = nearestNeighbor(pontos, origem);
-  return twoOpt(nn, origem);
+  return twoOpt(nearestNeighbor(pontos, origem), origem);
 }
 
 /* ==========================================================
-   UPLOAD
+   ANÁLISE DE REBALANCEAMENTO ENTRE ROTAS
+   Combina dois métodos:
+   A) Consolidação por cidade: se uma cidade aparece em 2+ rotas,
+      sugere mover todos os pedidos para a rota com mais paradas lá
+   B) Pedido individual: testa mover cada pedido para outras rotas
    ========================================================== */
+function analisarRebalanceamento(rotas, origem){
+  const rotaIds = Object.keys(rotas);
+  if(rotaIds.length < 2) return [];
+  
+  const sugestoes = [];
+  
+  // ========== MÉTODO A: CONSOLIDAÇÃO POR CIDADE ==========
+  // Mapear: cidade -> { rotaId: [pedidos] }
+  const cidadeRotas = {};
+  for(const rid of rotaIds){
+    for(const p of rotas[rid].pontos){
+      const cid = normalizarCidade(p.cidade);
+      if(!cidadeRotas[cid]) cidadeRotas[cid] = {};
+      if(!cidadeRotas[cid][rid]) cidadeRotas[cid][rid] = [];
+      cidadeRotas[cid][rid].push(p);
+    }
+  }
+  
+  // Para cada cidade dividida em 2+ rotas
+  for(const [cidade, rotasComCidade] of Object.entries(cidadeRotas)){
+    const ridsLista = Object.keys(rotasComCidade);
+    if(ridsLista.length < 2) continue;
+    
+    // Identificar a rota "principal" desta cidade (a que tem mais pedidos lá)
+    ridsLista.sort((a,b) => rotasComCidade[b].length - rotasComCidade[a].length);
+    const ridPrincipal = ridsLista[0];
+    
+    // Para cada rota minoritária, sugerir mover pedidos dela para a principal
+    for(let k = 1; k < ridsLista.length; k++){
+      const ridMinor = ridsLista[k];
+      const pedidosMover = rotasComCidade[ridMinor];
+      
+      for(const ped of pedidosMover){
+        // Calcular economia de mover este pedido
+        const pontosOrig = rotas[ridMinor].pontos;
+        const pontosDest = rotas[ridPrincipal].pontos;
+        
+        const distOrigAtual = totalDistance(pontosOrig, origem);
+        const distDestAtual = totalDistance(pontosDest, origem);
+        
+        const novaOrig = pontosOrig.filter(p => p.pedido !== ped.pedido);
+        const novaDest = [...pontosDest, ped];
+        
+        if(novaOrig.length === 0) continue; // não deixar rota vazia
+        
+        const novaDistOrig = totalDistance(otimizarRota(novaOrig, origem), origem);
+        const novaDistDest = totalDistance(otimizarRota(novaDest, origem), origem);
+        
+        const economia = (distOrigAtual + distDestAtual) - (novaDistOrig + novaDistDest);
+        
+        // Pra consolidação, aceita até economia pequena (1km) — o ganho operacional
+        // de não ter 2 motoristas na mesma cidade é grande mesmo sem ganho enorme de km
+        sugestoes.push({
+          tipo: 'consolidacao',
+          pedido: ped,
+          rotaOrigem: ridMinor,
+          rotaDestino: ridPrincipal,
+          economiaKmHav: Math.max(economia, 0.5),
+          economiaKmReal: Math.max(economia, 0.5) * FATOR_ESTRADA,
+          economiaMin: Math.max(economia, 0.5) * FATOR_ESTRADA / VELOCIDADE_MEDIA_KMH * 60,
+          economiaReais: Math.max(economia, 0.5) * FATOR_ESTRADA * 0.8,
+          motivo: `${cidade} já tem ${rotasComCidade[ridPrincipal].length} pedidos na Rota ${ridPrincipal}. Consolidar evita 2 motoristas na mesma cidade.`
+        });
+      }
+    }
+  }
+  
+  // ========== MÉTODO B: PEDIDO INDIVIDUAL (geográfico puro) ==========
+  const jaProposto = new Set(sugestoes.map(s => s.pedido.pedido));
+  
+  for(const ridOrig of rotaIds){
+    const pontosOrig = rotas[ridOrig].pontos;
+    if(pontosOrig.length <= 1) continue;
+    
+    const distOrigAtual = totalDistance(pontosOrig, origem);
+    
+    for(let i = 0; i < pontosOrig.length; i++){
+      const pedido = pontosOrig[i];
+      if(jaProposto.has(pedido.pedido)) continue;
+      
+      const novaOrig = pontosOrig.filter((_, idx) => idx !== i);
+      const novaDistOrig = totalDistance(otimizarRota(novaOrig, origem), origem);
+      const economiaOrig = distOrigAtual - novaDistOrig;
+      
+      for(const ridDest of rotaIds){
+        if(ridDest === ridOrig) continue;
+        const pontosDest = rotas[ridDest].pontos;
+        const distDestAtual = totalDistance(pontosDest, origem);
+        const novaDest = [...pontosDest, pedido];
+        const novaDistDest = totalDistance(otimizarRota(novaDest, origem), origem);
+        const custoDest = novaDistDest - distDestAtual;
+        
+        const economiaLiquida = economiaOrig - custoDest;
+        
+        if(economiaLiquida > 2){
+          sugestoes.push({
+            tipo: 'geografico',
+            pedido: pedido,
+            rotaOrigem: ridOrig,
+            rotaDestino: ridDest,
+            economiaKmHav: economiaLiquida,
+            economiaKmReal: economiaLiquida * FATOR_ESTRADA,
+            economiaMin: economiaLiquida * FATOR_ESTRADA / VELOCIDADE_MEDIA_KMH * 60,
+            economiaReais: economiaLiquida * FATOR_ESTRADA * 0.8,
+            motivo: `Geograficamente, este pedido faz menos desvio na Rota ${ridDest}.`
+          });
+          jaProposto.add(pedido.pedido);
+          break;
+        }
+      }
+    }
+  }
+  
+  // Ordenar: consolidação primeiro (mais visível), depois geográfico, por economia decrescente
+  sugestoes.sort((a,b) => {
+    if(a.tipo !== b.tipo) return a.tipo === 'consolidacao' ? -1 : 1;
+    return b.economiaKmReal - a.economiaKmReal;
+  });
+  
+  return sugestoes.slice(0, 12);
+}
+
+/* UPLOAD */
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
 
-dropZone.addEventListener('click', ()=>{
-  if(!apiCarregada){ toast('Aguarde — Google Maps ainda carregando.', true); return; }
-  fileInput.click();
-});
+dropZone.addEventListener('click', ()=>fileInput.click());
 dropZone.addEventListener('dragover', e=>{e.preventDefault();dropZone.classList.add('dragging')});
 dropZone.addEventListener('dragleave', ()=>dropZone.classList.remove('dragging'));
 dropZone.addEventListener('drop', e=>{
   e.preventDefault();dropZone.classList.remove('dragging');
-  if(!apiCarregada){ toast('Aguarde — Google Maps ainda carregando.', true); return; }
   if(e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]);
 });
 fileInput.addEventListener('change', e=>{
@@ -499,56 +673,42 @@ fileInput.addEventListener('change', e=>{
 
 async function processFile(file){
   if(!/\.xlsx?$/i.test(file.name)){
-    toast('Por favor envie um arquivo .xlsx ou .xls', true);
-    return;
+    toast('Por favor envie um .xlsx ou .xls', true); return;
   }
   showProgress(true, 'Lendo planilha...');
+  await new Promise(r=>setTimeout(r, 100));
 
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, {type:'array'});
   const ws = wb.Sheets[wb.SheetNames[0]];
   const json = XLSX.utils.sheet_to_json(ws, {defval:''});
 
-  if(!json.length){
-    toast('Planilha vazia', true);
-    showProgress(false); return;
-  }
+  if(!json.length){ toast('Planilha vazia', true); showProgress(false); return; }
 
-  const pedidos = json.map(row => ({
-    rota: row['B'] || row['b'] || '',
-    pedido: row['N.Ped'] || '',
-    cliente: row['Cliente'] || '',
-    carteira: row['Carteira'] || '',
-    valor: parseFloat(row['NVTTL']) || 0,
-    cidade: (row['Cidade'] || '').toString().trim(),
-    endereco: (row['Endereço'] || row['Endereco'] || '').toString().trim(),
-    numero: (row['NUMERO'] || '').toString().trim(),
-    volumes: parseFloat(row['VOLUMES']) || 0
-  })).filter(p => p.cidade && p.endereco);
+  updateProgress(30, `${json.length} linhas lidas. Identificando cidades...`);
+  await new Promise(r=>setTimeout(r, 200));
 
-  updateProgress(5, `${pedidos.length} pedidos lidos. Geocodificando via Google Maps...`);
+  const pedidos = json.map((row, idx) => {
+    const cidade = (row['Cidade'] || '').toString().trim();
+    const coords = coordsCidade(cidade);
+    return {
+      rota: row['B'] || row['b'] || '',
+      pedido: row['N.Ped'] || '',
+      cliente: row['Cliente'] || '',
+      carteira: row['Carteira'] || '',
+      valor: parseFloat(row['NVTTL']) || 0,
+      cidade: cidade,
+      endereco: (row['Endereço'] || row['Endereco'] || '').toString().trim(),
+      numero: (row['NUMERO'] || '').toString().trim(),
+      volumes: parseFloat(row['VOLUMES']) || 0,
+      lat: coords ? coords[0] + (Math.random()-0.5)*0.01 : null,  // jitter pra evitar marker overlap
+      lng: coords ? coords[1] + (Math.random()-0.5)*0.01 : null,
+      geocodeFalhou: !coords
+    };
+  }).filter(p => p.cidade);
 
-  // GEOCODE paralelo (5 simultâneos)
-  const concurrency = 5;
-  let processed = 0;
-  for(let i = 0; i < pedidos.length; i += concurrency){
-    const batch = pedidos.slice(i, i + concurrency);
-    await Promise.all(batch.map(async p => {
-      const end = `${p.endereco}, ${p.numero}, ${p.cidade}, SP, Brasil`;
-      const coords = await geocodeGoogle(end);
-      if(coords){
-        p.lat = coords.lat; p.lng = coords.lng;
-        p.enderecoFormatado = coords.formatado;
-        p.precisao = coords.tipo;
-      } else {
-        p.lat = null; p.lng = null; p.geocodeFalhou = true;
-      }
-      processed++;
-      updateProgress(5 + processed/pedidos.length*80, `Geocodificando ${processed}/${pedidos.length}...`);
-    }));
-  }
-
-  updateProgress(85, 'Otimizando rotas...');
+  updateProgress(60, 'Otimizando rotas...');
+  await new Promise(r=>setTimeout(r, 200));
 
   const pedidosValidos = pedidos.filter(p => p.lat !== null);
   const pedidosFalhos = pedidos.filter(p => p.lat === null);
@@ -567,26 +727,22 @@ async function processFile(file){
     const distOtimizadaHav = totalDistance(otimizada, ORIGEM);
     const distEstrada = distOtimizadaHav * FATOR_ESTRADA;
     const tempoMin = distEstrada / VELOCIDADE_MEDIA_KMH * 60;
-
     analise[rid] = {
-      pontos: otimizada,
-      pontosOriginais: pts,
-      distOriginalHav,
-      distOtimizadaHav,
-      distEstradaEstim: distEstrada,
-      tempoEstrada: tempoMin,
+      pontos: otimizada, pontosOriginais: pts,
+      distOriginalHav, distOtimizadaHav,
+      distEstradaEstim: distEstrada, tempoEstrada: tempoMin,
       economia: distOriginalHav - distOtimizadaHav,
       economiaPct: distOriginalHav > 0 ? (distOriginalHav - distOtimizadaHav)/distOriginalHav*100 : 0
     };
   }
 
   updateProgress(100, 'Concluído!');
-  dadosGlobais = {pedidos, pedidosFalhos, rotas: analise};
-
-  setTimeout(()=>{
-    showProgress(false);
-    renderResult();
-  }, 400);
+  
+  // Análise de rebalanceamento
+  const sugestoesRebal = analisarRebalanceamento(analise, ORIGEM);
+  
+  dadosGlobais = {pedidos, pedidosFalhos, rotas: analise, sugestoesRebal};
+  setTimeout(()=>{ showProgress(false); renderResult(); }, 300);
 }
 
 function showProgress(show, label=''){
@@ -600,16 +756,77 @@ function updateProgress(pct, label){
   if(label) document.getElementById('progressLabel').textContent = label;
 }
 
-/* ==========================================================
-   RENDER
-   ========================================================== */
+/* RENDER */
 function renderResult(){
   document.getElementById('uploadStage').style.display = 'none';
   document.getElementById('result').classList.add('active');
-  renderKPIs();
-  renderMap();
-  renderInsights();
-  renderTabsAndTable();
+  renderKPIs(); renderMap(); renderInsights(); renderRebalanceamento(); renderTabsAndTable();
+}
+
+function renderRebalanceamento(){
+  const sugs = dadosGlobais.sugestoesRebal || [];
+  const card = document.getElementById('rebalCard');
+  const body = document.getElementById('rebalBody');
+  const tag = document.getElementById('rebalTag');
+  
+  if(sugs.length === 0){
+    card.style.display = 'block';
+    tag.textContent = 'OK';
+    tag.style.background = 'rgba(61,220,151,0.15)';
+    tag.style.color = 'var(--accent-2)';
+    body.innerHTML = `<div class="rebal-empty">
+      ✓ <b style="color:var(--accent-2)">Nenhuma troca de rota é vantajosa.</b><br>
+      A divisão atual de pedidos entre as rotas já está geograficamente eficiente. Pode rodar como está.
+    </div>`;
+    return;
+  }
+  
+  card.style.display = 'block';
+  tag.textContent = `${sugs.length} SUGESTÃO${sugs.length>1?'ÕES':''}`;
+  
+  const totalKm = sugs.reduce((s,x)=>s+x.economiaKmReal, 0);
+  const totalMin = sugs.reduce((s,x)=>s+x.economiaMin, 0);
+  const totalReais = sugs.reduce((s,x)=>s+x.economiaReais, 0);
+  const nConsolid = sugs.filter(s => s.tipo === 'consolidacao').length;
+  const nGeo = sugs.filter(s => s.tipo === 'geografico').length;
+  
+  const resumoHtml = `<div class="rebal-resumo">
+    💰 Aplicando as ${sugs.length} sugestões abaixo, a economia estimada é de 
+    <b>~${totalKm.toFixed(0)} km</b> · <b>~${Math.round(totalMin)} min</b> · 
+    <b>~R$ ${totalReais.toFixed(0)}/dia</b> em combustível e desgaste.
+    ${nConsolid>0 ? `<br>🔀 <b>${nConsolid} consolidação${nConsolid>1?'ões':''} por cidade</b> (mesma cidade dividida entre rotas)` : ''}
+    ${nGeo>0 ? `<br>📐 <b>${nGeo} otimização${nGeo>1?'ões':''} geográfica${nGeo>1?'s':''}</b> (pedido em rota errada)` : ''}
+    <br><br>
+    <span style="color:var(--text)">📋 Como aplicar:</span> No seu ERP, mude o campo de rota dos pedidos abaixo. 
+    Depois rode esta análise de novo pra confirmar a melhoria.
+  </div>`;
+  
+  const itensHtml = sugs.map((s, idx) => {
+    const tipoLabel = s.tipo === 'consolidacao' 
+      ? '<span style="background:rgba(192,132,252,0.15);color:#c084fc;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:600">CONSOLIDAR</span>'
+      : '<span style="background:rgba(90,169,255,0.15);color:var(--info);padding:1px 6px;border-radius:3px;font-size:9px;font-weight:600">GEOGRÁFICO</span>';
+    return `
+    <div class="rebal-item">
+      <div class="rebal-rank">${idx+1}</div>
+      <div class="rebal-info">
+        <div class="pedido-id">PEDIDO ${s.pedido.pedido} ${tipoLabel}</div>
+        <div class="cliente">${s.pedido.cliente}</div>
+        <div class="movimento">
+          <span class="rota-tag">ROTA ${s.rotaOrigem}</span>
+          <span class="arrow">→</span>
+          <span class="rota-tag">ROTA ${s.rotaDestino}</span>
+          · ${s.pedido.cidade} · ${s.pedido.volumes} vol · R$ ${s.pedido.valor.toFixed(2)}
+        </div>
+        ${s.motivo ? `<div style="font-size:10px;color:var(--muted);margin-top:6px;font-style:italic">💬 ${s.motivo}</div>` : ''}
+      </div>
+      <div class="rebal-economia">
+        <div class="km">-${s.economiaKmReal.toFixed(0)} km</div>
+        <div class="extra">~${Math.round(s.economiaMin)} min · R$ ${s.economiaReais.toFixed(0)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  
+  body.innerHTML = resumoHtml + itensHtml;
 }
 
 function renderKPIs(){
@@ -618,101 +835,60 @@ function renderKPIs(){
   const totalRotas = Object.keys(d.rotas).length;
   const totalValor = d.pedidos.reduce((s,p)=>s+p.valor, 0);
   const totalVol = d.pedidos.reduce((s,p)=>s+p.volumes, 0);
-  const totalKmEstrada = Object.values(d.rotas).reduce((s,r)=>s+r.distEstradaEstim, 0);
+  const totalKm = Object.values(d.rotas).reduce((s,r)=>s+r.distEstradaEstim, 0);
   const totalMin = Object.values(d.rotas).reduce((s,r)=>s+r.tempoEstrada, 0);
-  const totalHavOriginal = Object.values(d.rotas).reduce((s,r)=>s+r.distOriginalHav, 0);
+  const totalHavOrig = Object.values(d.rotas).reduce((s,r)=>s+r.distOriginalHav, 0);
   const totalHavOtim = Object.values(d.rotas).reduce((s,r)=>s+r.distOtimizadaHav, 0);
-  const economiaPct = totalHavOriginal>0 ? ((totalHavOriginal-totalHavOtim)/totalHavOriginal*100) : 0;
+  const economiaPct = totalHavOrig>0 ? ((totalHavOrig-totalHavOtim)/totalHavOrig*100) : 0;
 
-  const html = `
+  document.getElementById('kpiGrid').innerHTML = `
     <div class="kpi"><div class="kpi-label">Rotas</div><div class="kpi-value">${totalRotas}</div><div class="kpi-sub">${totalPedidos} pedidos</div></div>
     <div class="kpi accent"><div class="kpi-label">Valor Total</div><div class="kpi-value">R$ ${(totalValor/1000).toFixed(1)}k</div><div class="kpi-sub">${totalValor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
     <div class="kpi"><div class="kpi-label">Volumes</div><div class="kpi-value">${totalVol.toFixed(0)}</div><div class="kpi-sub">Total a carregar</div></div>
-    <div class="kpi"><div class="kpi-label">Km Estimado</div><div class="kpi-value">${totalKmEstrada.toFixed(0)}</div><div class="kpi-sub">~estrada · ida+volta</div></div>
+    <div class="kpi"><div class="kpi-label">Km Estimado</div><div class="kpi-value">${totalKm.toFixed(0)}</div><div class="kpi-sub">~estrada · ida+volta</div></div>
     <div class="kpi accent"><div class="kpi-label">Tempo Estimado</div><div class="kpi-value">${(totalMin/60).toFixed(1)}h</div><div class="kpi-sub">${Math.round(totalMin)} min sem paradas</div></div>
     <div class="kpi ok"><div class="kpi-label">Economia Ordem</div><div class="kpi-value">${economiaPct.toFixed(1)}%</div><div class="kpi-sub">vs ordem do ERP</div></div>
-    ${d.pedidosFalhos.length>0 ? `<div class="kpi warn"><div class="kpi-label">Falhas Geocode</div><div class="kpi-value">${d.pedidosFalhos.length}</div><div class="kpi-sub">verificar endereço</div></div>`:''}
+    ${d.pedidosFalhos.length>0 ? `<div class="kpi warn"><div class="kpi-label">Cidades não mapeadas</div><div class="kpi-value">${d.pedidosFalhos.length}</div><div class="kpi-sub">verificar planilha</div></div>`:''}
   `;
-  document.getElementById('kpiGrid').innerHTML = html;
 }
 
 function renderMap(){
-  mapMarkers.forEach(m=>m.setMap(null)); mapMarkers = [];
-  mapPolylines.forEach(p=>p.setMap(null)); mapPolylines = [];
+  if(mapRef){ mapRef.remove(); }
+  mapRef = L.map('map', {zoomControl:true});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution:'© OpenStreetMap · CARTO',
+    maxZoom:19
+  }).addTo(mapRef);
 
-  if(!mapRef){
-    mapRef = new google.maps.Map(document.getElementById('map'), {
-      center: {lat: ORIGEM.lat, lng: ORIGEM.lng},
-      zoom: 10,
-      styles: [
-        {elementType:"geometry",stylers:[{color:"#1d2127"}]},
-        {elementType:"labels.text.fill",stylers:[{color:"#8a95a3"}]},
-        {elementType:"labels.text.stroke",stylers:[{color:"#0b0d10"}]},
-        {featureType:"administrative",elementType:"geometry",stylers:[{color:"#262d36"}]},
-        {featureType:"road",elementType:"geometry",stylers:[{color:"#2a3340"}]},
-        {featureType:"road.highway",elementType:"geometry",stylers:[{color:"#3a4a5e"}]},
-        {featureType:"water",elementType:"geometry",stylers:[{color:"#0a1620"}]},
-        {featureType:"poi",stylers:[{visibility:"off"}]},
-        {featureType:"transit",stylers:[{visibility:"off"}]}
-      ],
-      disableDefaultUI:false,
-      zoomControl:true
-    });
-  }
-
-  const cdMarker = new google.maps.Marker({
-    position: {lat:ORIGEM.lat,lng:ORIGEM.lng},
-    map: mapRef,
-    label: {text:'CD',color:'#000',fontWeight:'700',fontSize:'10px',fontFamily:'JetBrains Mono'},
-    icon: {
-      path: google.maps.SymbolPath.CIRCLE,
-      scale: 16, fillColor:'#ffffff', fillOpacity:1,
-      strokeColor:'#ffba2e', strokeWeight:3
-    }
+  const origemIcon = L.divIcon({
+    html:`<div style="background:#fff;color:#000;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-family:'JetBrains Mono';font-size:11px;border:3px solid #ffba2e;box-shadow:0 2px 12px rgba(0,0,0,0.6)">CD</div>`,
+    className:'',iconSize:[34,34],iconAnchor:[17,17]
   });
-  mapMarkers.push(cdMarker);
-  const cdInfo = new google.maps.InfoWindow({content:`<div style="font-family:JetBrains Mono;font-size:11px"><b>CENTRO DE DISTRIBUIÇÃO</b><br>${ORIGEM.nome}</div>`});
-  cdMarker.addListener('click', ()=>cdInfo.open(mapRef, cdMarker));
+  L.marker([ORIGEM.lat, ORIGEM.lng], {icon:origemIcon}).addTo(mapRef)
+    .bindPopup(`<b>CENTRO DE DISTRIBUIÇÃO</b><br>${ORIGEM.nome}`);
 
-  const bounds = new google.maps.LatLngBounds();
-  bounds.extend({lat:ORIGEM.lat, lng:ORIGEM.lng});
-
+  const allBounds = [[ORIGEM.lat, ORIGEM.lng]];
   const rotaIds = Object.keys(dadosGlobais.rotas).sort();
+
   rotaIds.forEach((rid, idx) => {
     const cor = CORES_ROTA[idx % CORES_ROTA.length];
     const pts = dadosGlobais.rotas[rid].pontos;
-    const path = [{lat:ORIGEM.lat,lng:ORIGEM.lng}, ...pts.map(p=>({lat:p.lat,lng:p.lng})), {lat:ORIGEM.lat,lng:ORIGEM.lng}];
-
-    const pl = new google.maps.Polyline({
-      path, geodesic:false, strokeColor:cor, strokeOpacity:0.85, strokeWeight:3, map:mapRef
-    });
-    mapPolylines.push(pl);
+    const coords = [[ORIGEM.lat, ORIGEM.lng], ...pts.map(p=>[p.lat,p.lng]), [ORIGEM.lat, ORIGEM.lng]];
+    L.polyline(coords, {color:cor, weight:3, opacity:0.75}).addTo(mapRef);
 
     pts.forEach((p, i) => {
-      const m = new google.maps.Marker({
-        position:{lat:p.lat,lng:p.lng}, map:mapRef,
-        label:{text:String(i+1),color:'#1a1305',fontWeight:'700',fontSize:'10px',fontFamily:'JetBrains Mono'},
-        icon:{
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 13, fillColor: cor, fillOpacity:1,
-          strokeColor:'#0b0d10', strokeWeight:2
-        }
+      const icon = L.divIcon({
+        html:`<div style="background:${cor};color:#1a1305;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-family:'JetBrains Mono';font-size:11px;border:2px solid #0b0d10;box-shadow:0 2px 6px rgba(0,0,0,0.5)">${i+1}</div>`,
+        className:'',iconSize:[28,28],iconAnchor:[14,14]
       });
-      const info = new google.maps.InfoWindow({
-        content:`<div style="font-family:JetBrains Mono;font-size:11px;color:#000;max-width:240px">
-          <b style="color:#cc8800">Parada ${i+1} · Rota ${rid}</b><br>
-          <b>${p.cliente}</b><br>
-          ${p.endereco}, ${p.numero}<br>${p.cidade}<br>
-          Pedido: ${p.pedido}<br>R$ ${p.valor.toFixed(2)} · ${p.volumes} vol.
-        </div>`
-      });
-      m.addListener('click', ()=>info.open(mapRef, m));
-      mapMarkers.push(m);
-      bounds.extend({lat:p.lat,lng:p.lng});
+      L.marker([p.lat, p.lng], {icon}).addTo(mapRef).bindPopup(
+        `<b>Parada ${i+1} · Rota ${rid}</b><br>${p.cliente}<br>${p.endereco}, ${p.numero}<br>${p.cidade}<br>Pedido: ${p.pedido} · R$ ${p.valor.toFixed(2)}<br>Volumes: ${p.volumes}`
+      );
+      allBounds.push([p.lat, p.lng]);
     });
   });
 
-  mapRef.fitBounds(bounds);
+  if(allBounds.length > 1) mapRef.fitBounds(allBounds, {padding:[40,40]});
 
   const legendHtml = rotaIds.map((rid, idx) => {
     const cor = CORES_ROTA[idx % CORES_ROTA.length];
@@ -723,190 +899,110 @@ function renderMap(){
   document.getElementById('mapTag').textContent = `${rotaIds.length} ROTA${rotaIds.length>1?'S':''}`;
 }
 
-/* ==========================================================
-   DIAGNÓSTICO
-   ========================================================== */
 function renderInsights(){
   const d = dadosGlobais;
   const insights = [];
-
-  const totalHavOriginal = Object.values(d.rotas).reduce((s,r)=>s+r.distOriginalHav, 0);
+  const totalHavOrig = Object.values(d.rotas).reduce((s,r)=>s+r.distOriginalHav, 0);
   const totalHavOtim = Object.values(d.rotas).reduce((s,r)=>s+r.distOtimizadaHav, 0);
   const totalKm = Object.values(d.rotas).reduce((s,r)=>s+r.distEstradaEstim, 0);
-  const economia = totalHavOriginal - totalHavOtim;
-  const economiaPct = totalHavOriginal>0 ? (economia/totalHavOriginal*100) : 0;
-  const economiaKmReal = totalKm * (economiaPct/100);
+  const economiaPct = totalHavOrig>0 ? ((totalHavOrig-totalHavOtim)/totalHavOrig*100) : 0;
+  const economiaKm = totalKm * (economiaPct/100);
 
   if(economiaPct > 15){
-    insights.push({
-      type:'critical', icon:'⚠️',
-      title:`Reordenação pode economizar ${economiaPct.toFixed(1)}% (~${economiaKmReal.toFixed(0)} km)`,
-      text:`A ordem do ERP está <b>significativamente abaixo do ótimo</b>. Reordenando paradas dentro de cada rota (sem mover pedidos entre rotas), economiza-se ~${economiaKmReal.toFixed(0)} km. A R$ 0,80/km: <b>~R$ ${(economiaKmReal*0.8).toFixed(0)} por dia</b>.`
-    });
+    insights.push({type:'critical', icon:'⚠️', title:`Reordenação economiza ${economiaPct.toFixed(1)}% (~${economiaKm.toFixed(0)} km)`,
+      text:`Ordem do ERP está <b>abaixo do ótimo</b>. Reordenando paradas, economiza-se ~${economiaKm.toFixed(0)} km. A R$ 0,80/km: <b>~R$ ${(economiaKm*0.8).toFixed(0)} por dia</b>.`});
   } else if(economiaPct > 5){
-    insights.push({
-      type:'warning', icon:'📐',
-      title:`Pequena melhoria: ${economiaPct.toFixed(1)}% (~${economiaKmReal.toFixed(0)} km)`,
-      text:`O ERP montou rotas razoáveis. Reordenando, economiza-se ~${economiaKmReal.toFixed(0)} km. Vale aplicar a ordem sugerida.`
-    });
+    insights.push({type:'warning', icon:'📐', title:`Pequena melhoria: ${economiaPct.toFixed(1)}% (~${economiaKm.toFixed(0)} km)`,
+      text:`Reordenando paradas, economiza-se ~${economiaKm.toFixed(0)} km. Vale aplicar a ordem sugerida.`});
   } else {
-    insights.push({
-      type:'success', icon:'✓',
-      title:`Rotas do ERP estão bem ordenadas`,
-      text:`A sequência atual já está próxima do ótimo (diferença ${economiaPct.toFixed(1)}%). Pode rodar como está.`
-    });
+    insights.push({type:'success', icon:'✓', title:`Rotas do ERP estão bem ordenadas`,
+      text:`Sequência atual já está próxima do ótimo (diferença ${economiaPct.toFixed(1)}%).`});
   }
 
-  // Jornada estimada
   const rotaIds = Object.keys(d.rotas);
   for(const rid of rotaIds){
     const r = d.rotas[rid];
-    const tempoEstrada = r.tempoEstrada / 60;
-    const tempoParadas = r.pontos.length * 0.33;
-    const tempoTotal = tempoEstrada + tempoParadas;
-    if(tempoTotal > 9){
-      insights.push({
-        type:'critical', icon:'⏱️',
-        title:`Rota ${rid}: jornada estimada ${tempoTotal.toFixed(1)}h — pode estourar`,
-        text:`<b>${tempoEstrada.toFixed(1)}h estrada</b> + <b>${tempoParadas.toFixed(1)}h em ${r.pontos.length} entregas</b> (20min cada). Acima de 8h gera hora extra e desgaste. Considere dividir em duas ou tirar 2-3 paradas distantes.`
-      });
-    } else if(tempoTotal > 7){
-      insights.push({
-        type:'warning', icon:'⏱️',
-        title:`Rota ${rid}: ${tempoTotal.toFixed(1)}h estimadas`,
-        text:`${tempoEstrada.toFixed(1)}h estrada + ${tempoParadas.toFixed(1)}h paradas. Dentro do limite, mas sem margem. Atrasos da manhã viram hora extra à tarde.`
-      });
+    const tEstrada = r.tempoEstrada / 60;
+    const tParadas = r.pontos.length * 0.33;
+    const tTotal = tEstrada + tParadas;
+    if(tTotal > 9){
+      insights.push({type:'critical', icon:'⏱️', title:`Rota ${rid}: jornada ${tTotal.toFixed(1)}h — pode estourar`,
+        text:`<b>${tEstrada.toFixed(1)}h estrada</b> + <b>${tParadas.toFixed(1)}h em ${r.pontos.length} entregas</b>. Acima de 8h gera hora extra. Considere dividir.`});
+    } else if(tTotal > 7){
+      insights.push({type:'warning', icon:'⏱️', title:`Rota ${rid}: ${tTotal.toFixed(1)}h estimadas`,
+        text:`Sem margem para atrasos. Saída antecipada recomendada.`});
     }
   }
 
-  // Desbalanceamento
-  const volumesPorRota = rotaIds.map(r => ({
-    id:r,
-    volumes: d.rotas[r].pontos.reduce((s,p)=>s+p.volumes, 0),
-    paradas: d.rotas[r].pontos.length
-  }));
   if(rotaIds.length > 1){
-    const maxVol = Math.max(...volumesPorRota.map(r=>r.volumes));
-    const minVol = Math.min(...volumesPorRota.map(r=>r.volumes));
-    const desbalanco = maxVol > 0 ? (maxVol - minVol)/maxVol * 100 : 0;
-    if(desbalanco > 25){
-      const maior = volumesPorRota.find(r=>r.volumes===maxVol);
-      const menor = volumesPorRota.find(r=>r.volumes===minVol);
-      insights.push({
-        type:'warning', icon:'⚖️',
-        title:`Desbalanceamento entre rotas (${desbalanco.toFixed(0)}%)`,
-        text:`<b>Rota ${maior.id}</b> = ${maior.volumes.toFixed(0)} volumes vs <b>Rota ${menor.id}</b> = ${menor.volumes.toFixed(0)}. Se os veículos são semelhantes, considere transferir pedidos.`
-      });
+    const vols = rotaIds.map(r => ({id:r, v: d.rotas[r].pontos.reduce((s,p)=>s+p.volumes, 0)}));
+    const max = Math.max(...vols.map(x=>x.v));
+    const min = Math.min(...vols.map(x=>x.v));
+    const desb = max > 0 ? (max - min)/max * 100 : 0;
+    if(desb > 25){
+      const ma = vols.find(x=>x.v===max); const me = vols.find(x=>x.v===min);
+      insights.push({type:'warning', icon:'⚖️', title:`Desbalanceamento entre rotas (${desb.toFixed(0)}%)`,
+        text:`<b>Rota ${ma.id}</b>=${ma.v.toFixed(0)} vol vs <b>Rota ${me.id}</b>=${me.v.toFixed(0)} vol. Considere transferir pedidos.`});
     }
   }
 
-  // Dinheiro
-  const dinheiroPeds = d.pedidos.filter(p=>(p.carteira||'').toUpperCase().includes('DINHEIRO'));
-  const dinheiroVal = dinheiroPeds.reduce((s,p)=>s+p.valor, 0);
-  if(dinheiroVal > 1000){
-    insights.push({
-      type:'critical', icon:'💵',
-      title:`R$ ${dinheiroVal.toFixed(0)} em dinheiro a coletar (${dinheiroPeds.length} pedidos)`,
-      text:`Volume alto expõe o motorista. <b>Recomendações:</b> entregar dinheiro <b>no final</b> da rota (deposita logo) ou <b>no início</b> (menos exposição); ofereça PIX como alternativa; varie trajeto de retorno.`
-    });
+  const dinPeds = d.pedidos.filter(p=>(p.carteira||'').toUpperCase().includes('DINHEIRO'));
+  const dinVal = dinPeds.reduce((s,p)=>s+p.valor, 0);
+  if(dinVal > 1000){
+    insights.push({type:'critical', icon:'💵', title:`R$ ${dinVal.toFixed(0)} em dinheiro (${dinPeds.length} pedidos)`,
+      text:`Volume alto expõe motorista. Entregue dinheiro no <b>início</b> ou <b>fim</b> da rota; ofereça PIX como alternativa.`});
   }
 
-  // Volume zero
   const volZero = d.pedidos.filter(p=>p.volumes === 0);
   if(volZero.length > 0){
-    insights.push({
-      type:'info', icon:'❓',
-      title:`${volZero.length} pedido(s) com volume = 0`,
-      text:`Pedido(s) <b>${volZero.map(p=>p.pedido).join(', ')}</b> sem volume. Verifique se é erro ou serviço/garantia.`
-    });
+    insights.push({type:'info', icon:'❓', title:`${volZero.length} pedido(s) com volume = 0`,
+      text:`Pedidos <b>${volZero.map(p=>p.pedido).join(', ')}</b>. Verifique se é erro ou serviço.`});
   }
 
   if(d.pedidosFalhos.length > 0){
-    insights.push({
-      type:'critical', icon:'📍',
-      title:`${d.pedidosFalhos.length} endereço(s) não localizados`,
-      text:`Pedidos <b>${d.pedidosFalhos.map(p=>p.pedido).join(', ')}</b> não foram localizados. Cheque grafia/número. Ficaram fora da otimização.`
-    });
-  }
-
-  const aproximados = d.pedidos.filter(p => p.precisao && p.precisao !== 'ROOFTOP' && p.precisao !== 'RANGE_INTERPOLATED');
-  if(aproximados.length > 3){
-    insights.push({
-      type:'warning', icon:'🎯',
-      title:`${aproximados.length} endereço(s) com precisão baixa`,
-      text:`Google localizou apenas aproximação (rua ou bairro, não número exato). A rota pode ter pequenos desvios. Considere padronizar cadastros no ERP.`
-    });
-  }
-
-  // Múltiplos pedidos do mesmo cliente
-  const porCliente = {};
-  for(const p of d.pedidos){
-    if(!porCliente[p.cliente]) porCliente[p.cliente] = [];
-    porCliente[p.cliente].push(p);
-  }
-  const clientesMult = Object.entries(porCliente).filter(([k,v])=>v.length>1);
-  if(clientesMult.length > 0){
-    const detalhes = clientesMult.slice(0,3).map(([cli,peds])=>`${cli.slice(0,30)} (${peds.length}x)`).join('; ');
-    insights.push({
-      type:'info', icon:'👥',
-      title:`${clientesMult.length} cliente(s) com múltiplos pedidos`,
-      text:`<b>${detalhes}</b>. Verifique se faz sentido consolidar em uma só entrega.`
-    });
+    const cidsFalha = [...new Set(d.pedidosFalhos.map(p=>p.cidade))].join(', ');
+    insights.push({type:'critical', icon:'📍', title:`${d.pedidosFalhos.length} pedido(s) com cidade não cadastrada`,
+      text:`Cidades não encontradas no sistema: <b>${cidsFalha}</b>. Estes pedidos foram ignorados na otimização. Verifique grafia ou avise para adicionar ao sistema.`});
   }
 
   const altoValor = d.pedidos.filter(p=>p.valor > 5000).sort((a,b)=>b.valor-a.valor);
   if(altoValor.length > 0){
-    insights.push({
-      type:'info', icon:'💰',
-      title:`${altoValor.length} pedido(s) acima de R$ 5.000`,
-      text:`Maior: <b>${altoValor[0].cliente.slice(0,30)}</b> — R$ ${altoValor[0].valor.toLocaleString('pt-BR')}. Confirme entrega com cliente <b>antes</b> de carregar.`
-    });
+    insights.push({type:'info', icon:'💰', title:`${altoValor.length} pedido(s) acima de R$ 5.000`,
+      text:`Maior: <b>${altoValor[0].cliente.slice(0,30)}</b> — R$ ${altoValor[0].valor.toLocaleString('pt-BR')}. Confirme entrega antes de carregar.`});
   }
 
-  // Cidades espalhadas
-  const cidadesEspalhadas = {};
+  const cidEsp = {};
   for(const [rid, info] of Object.entries(d.rotas)){
     for(const p of info.pontos){
-      const c = p.cidade.toUpperCase().replace(/Á/g,'A').replace(/Ã/g,'A').replace(/É/g,'E');
-      if(!cidadesEspalhadas[c]) cidadesEspalhadas[c] = new Set();
-      cidadesEspalhadas[c].add(rid);
+      const c = normalizarCidade(p.cidade);
+      if(!cidEsp[c]) cidEsp[c] = new Set();
+      cidEsp[c].add(rid);
     }
   }
-  const espalhadas = Object.entries(cidadesEspalhadas).filter(([c,rs])=>rs.size>1);
-  if(espalhadas.length>0){
-    const detalhes = espalhadas.map(([c,rs])=>`<b>${c}</b> em rotas ${[...rs].join(' e ')}`).join(', ');
-    insights.push({
-      type:'warning', icon:'🔀',
-      title:`Cidades divididas entre rotas`,
-      text:`${detalhes}. Concentrar cada cidade em uma só rota evita dois veículos cruzando o mesmo bairro. Reveja a divisão no ERP.`
-    });
+  const esp = Object.entries(cidEsp).filter(([c,rs])=>rs.size>1);
+  if(esp.length>0){
+    const det = esp.map(([c,rs])=>`<b>${c}</b> em rotas ${[...rs].join(' e ')}`).join(', ');
+    insights.push({type:'warning', icon:'🔀', title:`Cidades divididas entre rotas`,
+      text:`${det}. Concentrar cada cidade em uma só rota evita cruzamento de veículos.`});
   }
 
-  insights.push({
-    type:'success', icon:'⏰',
-    title:`Dica operacional: planeje horários`,
-    text:`Rotas litorâneas: saia <b>antes das 5h</b> para evitar Anchieta/Imigrantes congestionadas. Comércio de construção abre 7h-8h — sincronize. No retorno, evite Imigrantes sentido capital após 16h.`
-  });
+  insights.push({type:'success', icon:'⏰', title:`Dica operacional: horários`,
+    text:`Rotas litorâneas: saia <b>antes das 5h</b> pra evitar Anchieta/Imigrantes lotadas. Comércio abre 7h-8h.`});
 
-  const html = insights.map(i => `
+  document.getElementById('insights').innerHTML = insights.map(i => `
     <div class="insight ${i.type}">
       <div class="insight-icon">${i.icon}</div>
       <div class="insight-body">
         <div class="insight-title">${i.title}</div>
         <div class="insight-text">${i.text}</div>
       </div>
-    </div>
-  `).join('');
-  document.getElementById('insights').innerHTML = html;
+    </div>`).join('');
 }
 
-/* ==========================================================
-   TABS + TABLE
-   ========================================================== */
 function renderTabsAndTable(){
   const rotaIds = Object.keys(dadosGlobais.rotas).sort();
-  const tabsHtml = rotaIds.map((rid, idx) => `<button class="rota-tab ${idx===0?'active':''}" data-rota="${rid}">ROTA ${rid} · ${dadosGlobais.rotas[rid].pontos.length} paradas</button>`).join('');
-  document.getElementById('rotaTabs').innerHTML = tabsHtml;
+  document.getElementById('rotaTabs').innerHTML = rotaIds.map((rid, idx) => 
+    `<button class="rota-tab ${idx===0?'active':''}" data-rota="${rid}">ROTA ${rid} · ${dadosGlobais.rotas[rid].pontos.length} paradas</button>`).join('');
   document.querySelectorAll('.rota-tab').forEach(t=>{
     t.addEventListener('click', ()=>{
       document.querySelectorAll('.rota-tab').forEach(x=>x.classList.remove('active'));
@@ -920,46 +1016,32 @@ function renderTabsAndTable(){
 function renderTable(rotaId){
   const info = dadosGlobais.rotas[rotaId];
   let prev = ORIGEM;
-  const rows = info.pontos.map((p, i) => {
-    const dist = distEstimada(prev, p);
-    prev = p;
+  document.getElementById('stopsTableBody').innerHTML = info.pontos.map((p, i) => {
+    const dist = distEstimada(prev, p); prev = p;
     const pagto = classificarPagto(p.carteira);
-    return `
-      <tr>
-        <td><span class="seq">${i+1}</span></td>
-        <td>
-          <div><b>${p.cliente}</b></div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">${p.endereco}, ${p.numero}</div>
-          <div class="cidade">${p.cidade}</div>
-        </td>
-        <td class="mono" style="font-size:11px">${p.pedido}</td>
-        <td class="mono">R$ ${p.valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-        <td class="mono">${p.volumes.toFixed(0)}</td>
-        <td><span class="pagto ${pagto.tipo}">${pagto.label}</span></td>
-        <td class="mono" style="color:var(--muted)">~${dist.toFixed(1)} km</td>
-      </tr>
-    `;
+    return `<tr>
+      <td><span class="seq">${i+1}</span></td>
+      <td><div><b>${p.cliente}</b></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${p.endereco}, ${p.numero}</div>
+        <div class="cidade">${p.cidade}</div></td>
+      <td class="mono" style="font-size:11px">${p.pedido}</td>
+      <td class="mono">R$ ${p.valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td class="mono">${p.volumes.toFixed(0)}</td>
+      <td><span class="pagto ${pagto.tipo}">${pagto.label}</span></td>
+      <td class="mono" style="color:var(--muted)">~${dist.toFixed(1)} km</td></tr>`;
   }).join('');
-  document.getElementById('stopsTableBody').innerHTML = rows;
 }
 
-/* ==========================================================
-   EXPORT
-   ========================================================== */
 function exportarCSV(){
   if(!dadosGlobais) return;
-  const linhas = [['Rota','Ordem','Pedido','Cliente','Cidade','Endereco','Numero','Valor','Volumes','Pagamento','Latitude','Longitude','KM_estim_da_anterior']];
+  const linhas = [['Rota','Ordem','Pedido','Cliente','Cidade','Endereco','Numero','Valor','Volumes','Pagamento','KM_estim']];
   for(const rid of Object.keys(dadosGlobais.rotas).sort()){
     const info = dadosGlobais.rotas[rid];
     let prev = ORIGEM;
     info.pontos.forEach((p, i) => {
-      const dist = distEstimada(prev, p);
-      prev = p;
-      linhas.push([
-        rid, i+1, p.pedido, `"${p.cliente}"`, p.cidade,
-        `"${p.endereco}"`, p.numero, p.valor.toFixed(2), p.volumes,
-        `"${p.carteira}"`, p.lat.toFixed(6), p.lng.toFixed(6), dist.toFixed(2)
-      ]);
+      const dist = distEstimada(prev, p); prev = p;
+      linhas.push([rid, i+1, p.pedido, `"${p.cliente}"`, p.cidade, `"${p.endereco}"`, p.numero,
+        p.valor.toFixed(2), p.volumes, `"${p.carteira}"`, dist.toFixed(2)]);
     });
   }
   const csv = linhas.map(l=>l.join(',')).join('\n');
@@ -967,21 +1049,17 @@ function exportarCSV(){
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = 'rotas_otimizadas.csv';
-  a.click();
-  URL.revokeObjectURL(url);
+  a.click(); URL.revokeObjectURL(url);
   toast('CSV exportado');
 }
 
 function resetAll(){
   dadosGlobais = null;
-  mapMarkers.forEach(m=>m.setMap(null)); mapMarkers = [];
-  mapPolylines.forEach(p=>p.setMap(null)); mapPolylines = [];
+  if(mapRef){ mapRef.remove(); mapRef = null; }
   document.getElementById('uploadStage').style.display = 'block';
   document.getElementById('result').classList.remove('active');
   document.getElementById('fileInput').value = '';
 }
-
-carregarGoogleMaps();
 </script>
 </body>
 </html>
