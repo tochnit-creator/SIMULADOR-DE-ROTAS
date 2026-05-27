@@ -685,27 +685,39 @@ async function processFile(file){
 
   if(!json.length){ toast('Planilha vazia', true); showProgress(false); return; }
 
+  // Helper: pegar valor de uma coluna tentando vários nomes possíveis
+  // (suporta planilha antiga e nova)
+  const getCol = (row, ...names) => {
+    for(const n of names){
+      if(row[n] !== undefined && row[n] !== null && row[n] !== '') return row[n];
+    }
+    return '';
+  };
+
   updateProgress(30, `${json.length} linhas lidas. Identificando cidades...`);
   await new Promise(r=>setTimeout(r, 200));
 
   const pedidos = json.map((row, idx) => {
-    const cidade = (row['Cidade'] || '').toString().trim();
+    const cidade = (getCol(row, 'Cidade') || '').toString().trim();
     const coords = coordsCidade(cidade);
+    const valor = parseFloat(getCol(row, 'NVTTL', 'Valor')) || 0;
     return {
-      rota: row['B'] || row['b'] || '',
-      pedido: row['N.Ped'] || '',
-      cliente: row['Cliente'] || '',
-      carteira: row['Carteira'] || '',
-      valor: parseFloat(row['NVTTL']) || 0,
+      rota: getCol(row, 'B', 'b'),
+      pedido: getCol(row, 'N.Ped', 'N.Ped.'),
+      cliente: getCol(row, 'Cliente'),
+      carteira: getCol(row, 'Carteira'),
+      valor: valor,
       cidade: cidade,
-      endereco: (row['Endereço'] || row['Endereco'] || '').toString().trim(),
-      numero: (row['NUMERO'] || '').toString().trim(),
-      volumes: parseFloat(row['VOLUMES']) || 0,
-      lat: coords ? coords[0] + (Math.random()-0.5)*0.01 : null,  // jitter pra evitar marker overlap
+      endereco: (getCol(row, 'Endereço', 'Endereco') || '').toString().trim(),
+      numero: (getCol(row, 'NUMERO', 'Nr.', 'Numero') || '').toString().trim(),
+      volumes: parseFloat(getCol(row, 'VOLUMES', 'Volumes')) || 0,
+      lat: coords ? coords[0] + (Math.random()-0.5)*0.01 : null,
       lng: coords ? coords[1] + (Math.random()-0.5)*0.01 : null,
       geocodeFalhou: !coords
     };
-  }).filter(p => p.cidade);
+  })
+  // Filtra linhas de cabeçalho/subtítulo: precisa ter cidade E (pedido OU cliente)
+  .filter(p => p.cidade && (p.pedido || p.cliente));
 
   updateProgress(60, 'Otimizando rotas...');
   await new Promise(r=>setTimeout(r, 200));
