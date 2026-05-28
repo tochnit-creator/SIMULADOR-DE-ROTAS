@@ -1126,6 +1126,47 @@
   .ins-obs-text{flex:1;min-width:0}
   .ins-row-obs-endereco .ins-obs-text{font-weight:500}
 
+  /* Linha de sugestão de rota (depois da obs) */
+  .ins-row-sugestao{
+    padding:6px 14px 10px 56px;
+    font-size:12px;
+    line-height:1.4;
+    display:flex;gap:8px;align-items:flex-start;
+    background:rgba(212,255,63,0.06);
+    border-left:3px solid var(--accent);
+    color:var(--ink);
+  }
+  .ins-row-sugestao-ok{
+    background:rgba(127,224,90,0.05);
+    border-left-color:var(--ok);
+    color:var(--ink-dim);
+  }
+  .ins-row-sugestao-nova{
+    background:rgba(255,184,77,0.05);
+    border-left-color:var(--warn);
+  }
+  .ins-sug-icon{
+    font-size:14px;
+    line-height:1.2;
+    flex-shrink:0;
+    font-weight:700;
+    color:var(--accent);
+    width:18px;text-align:center;
+  }
+  .ins-row-sugestao-ok .ins-sug-icon{color:var(--ok)}
+  .ins-row-sugestao-nova .ins-sug-icon{color:var(--warn)}
+  .ins-sug-text{flex:1;min-width:0}
+  .ins-sug-text strong{color:var(--ink);font-weight:600}
+  .ins-row-sugestao-ok .ins-sug-text strong{color:var(--ok)}
+  .ins-row-sugestao .ins-sug-text strong{color:var(--accent)}
+  .ins-row-sugestao-nova .ins-sug-text strong{color:var(--warn)}
+  .ins-sug-fonte{
+    margin-left:6px;
+    font-size:10.5px;
+    color:var(--ink-mute);
+    font-family:'JetBrains Mono',monospace;
+  }
+
   @media(max-width:900px){
     .ins-row{
       grid-template-columns: 1fr 1fr;
@@ -1141,6 +1182,7 @@
     .ins-city, .ins-rep{display:none}
     .ins-row-head{display:none}
     .ins-row-obs{padding-left:14px}
+    .ins-row-sugestao{padding-left:14px}
   }
 
   /* EMPTY STATE */
@@ -2347,6 +2389,115 @@ function extrairEndereco(obs){
   return limpo.length > 120 ? limpo.substring(0,118) + '…' : limpo;
 }
 
+// Cidades conhecidas com mapeamento direto pra nome de zona
+// (subset das principais cobertas pelo sistema)
+const CIDADES_ZONA = {
+  // SP Capital + sub-bairros comuns
+  'sao paulo':       { zona:'SP CAPITAL · Centro/Zonas',         tipo:'CAPITAL_ABC', km:35 },
+  'são paulo':       { zona:'SP CAPITAL · Centro/Zonas',         tipo:'CAPITAL_ABC', km:35 },
+  'santana':         { zona:'SP CAPITAL · Centro/Zonas',         tipo:'CAPITAL_ABC', km:35 },
+  'tatuape':         { zona:'SP CAPITAL · Centro/Zonas',         tipo:'CAPITAL_ABC', km:35 },
+  'tatuapé':         { zona:'SP CAPITAL · Centro/Zonas',         tipo:'CAPITAL_ABC', km:35 },
+  'mooca':           { zona:'SP CAPITAL · Centro/Zonas',         tipo:'CAPITAL_ABC', km:35 },
+  'ipiranga':        { zona:'SP CAPITAL · Centro/Zonas',         tipo:'CAPITAL_ABC', km:35 },
+  'pinheiros':       { zona:'SP CAPITAL · Centro/Zonas',         tipo:'CAPITAL_ABC', km:35 },
+  'butanta':         { zona:'SP CAPITAL · Centro/Zonas',         tipo:'CAPITAL_ABC', km:35 },
+  'butantã':         { zona:'SP CAPITAL · Centro/Zonas',         tipo:'CAPITAL_ABC', km:35 },
+  // Grande SP
+  'osasco':          { zona:'GRANDE SP · Oeste (Osasco/Barueri)', tipo:'CAPITAL_ABC', km:45 },
+  'barueri':         { zona:'GRANDE SP · Oeste (Osasco/Barueri)', tipo:'CAPITAL_ABC', km:45 },
+  'carapicuiba':     { zona:'GRANDE SP · Oeste (Osasco/Barueri)', tipo:'CAPITAL_ABC', km:45 },
+  'carapicuíba':     { zona:'GRANDE SP · Oeste (Osasco/Barueri)', tipo:'CAPITAL_ABC', km:45 },
+  'cotia':           { zona:'GRANDE SP · Oeste (Osasco/Barueri)', tipo:'CAPITAL_ABC', km:45 },
+  'guarulhos':       { zona:'GUARULHOS',                          tipo:'CAPITAL_ABC', km:30 },
+  'itaquaquecetuba': { zona:'GRANDE SP · Leste (Itaqua/Suzano)',  tipo:'CAPITAL_ABC', km:40 },
+  'suzano':          { zona:'GRANDE SP · Leste (Itaqua/Suzano)',  tipo:'CAPITAL_ABC', km:40 },
+  'mogi das cruzes': { zona:'GRANDE SP · Leste (Itaqua/Suzano)',  tipo:'CAPITAL_ABC', km:40 },
+  'mogi':            { zona:'GRANDE SP · Leste (Itaqua/Suzano)',  tipo:'CAPITAL_ABC', km:40 },
+  // ABC
+  'santo andre':     { zona:'ABC · Santo André',                  tipo:'CAPITAL_ABC', km:10 },
+  'santo andré':     { zona:'ABC · Santo André',                  tipo:'CAPITAL_ABC', km:10 },
+  'maua':            { zona:'ABC · Mauá (base)',                  tipo:'CAPITAL_ABC', km:4 },
+  'mauá':            { zona:'ABC · Mauá (base)',                  tipo:'CAPITAL_ABC', km:4 },
+  'sao caetano':     { zona:'ABC · São Caetano',                  tipo:'CAPITAL_ABC', km:12 },
+  'são caetano':     { zona:'ABC · São Caetano',                  tipo:'CAPITAL_ABC', km:12 },
+  'sao caetano do sul':{zona:'ABC · São Caetano',                 tipo:'CAPITAL_ABC', km:12 },
+  'sao bernardo':    { zona:'ABC · São Bernardo',                 tipo:'CAPITAL_ABC', km:14 },
+  'são bernardo':    { zona:'ABC · São Bernardo',                 tipo:'CAPITAL_ABC', km:14 },
+  'sao bernardo do campo':{zona:'ABC · São Bernardo',             tipo:'CAPITAL_ABC', km:14 },
+  'diadema':         { zona:'ABC · Diadema',                      tipo:'CAPITAL_ABC', km:16 },
+  // Litoral
+  'santos':          { zona:'BAIXADA SANTISTA · Santos/Guarujá',  tipo:'INTERIOR_LITORAL', km:85 },
+  'guaruja':         { zona:'BAIXADA SANTISTA · Santos/Guarujá',  tipo:'INTERIOR_LITORAL', km:85 },
+  'guarujá':         { zona:'BAIXADA SANTISTA · Santos/Guarujá',  tipo:'INTERIOR_LITORAL', km:85 },
+  'sao vicente':     { zona:'BAIXADA SANTISTA · Santos/Guarujá',  tipo:'INTERIOR_LITORAL', km:85 },
+  'são vicente':     { zona:'BAIXADA SANTISTA · Santos/Guarujá',  tipo:'INTERIOR_LITORAL', km:85 },
+  'praia grande':    { zona:'BAIXADA SANTISTA · Santos/Guarujá',  tipo:'INTERIOR_LITORAL', km:85 },
+  // Vale do Paraíba
+  'taubate':         { zona:'VALE DO PARAÍBA · Taubaté/SJC',      tipo:'INTERIOR_LITORAL', km:110 },
+  'taubaté':         { zona:'VALE DO PARAÍBA · Taubaté/SJC',      tipo:'INTERIOR_LITORAL', km:110 },
+  'sao jose dos campos':{zona:'VALE DO PARAÍBA · Taubaté/SJC',    tipo:'INTERIOR_LITORAL', km:110 },
+  'são josé dos campos':{zona:'VALE DO PARAÍBA · Taubaté/SJC',    tipo:'INTERIOR_LITORAL', km:110 },
+  'sjc':             { zona:'VALE DO PARAÍBA · Taubaté/SJC',      tipo:'INTERIOR_LITORAL', km:110 },
+  // Campinas
+  'campinas':        { zona:'CAMPINAS · Indaiatuba/Jundiaí',      tipo:'INTERIOR_LITORAL', km:95 },
+  'jundiai':         { zona:'CAMPINAS · Indaiatuba/Jundiaí',      tipo:'INTERIOR_LITORAL', km:95 },
+  'jundiaí':         { zona:'CAMPINAS · Indaiatuba/Jundiaí',      tipo:'INTERIOR_LITORAL', km:95 },
+  'indaiatuba':      { zona:'CAMPINAS · Indaiatuba/Jundiaí',      tipo:'INTERIOR_LITORAL', km:95 },
+  'salto':           { zona:'CAMPINAS · Indaiatuba/Jundiaí',      tipo:'INTERIOR_LITORAL', km:95 },
+  // Sorocaba
+  'sorocaba':        { zona:'SOROCABA · Itu/Itapetininga',        tipo:'INTERIOR_LITORAL', km:130 },
+  'itu':             { zona:'SOROCABA · Itu/Itapetininga',        tipo:'INTERIOR_LITORAL', km:130 },
+  'itapetininga':    { zona:'SOROCABA · Itu/Itapetininga',        tipo:'INTERIOR_LITORAL', km:130 },
+};
+
+// Tenta inferir a zona a partir do TEXTO da observação de endereço.
+// Procura por nome de cidade ou CEP no texto, e retorna a melhor zona detectada.
+// Retorna { zona, tipo, km, cidadeDetectada, cepDetectado } ou null se não conseguiu.
+function inferirZonaDoEndereco(obs){
+  if (!obs) return null;
+  const txt = String(obs).toLowerCase();
+
+  // 1) tentar achar CEP no texto (8 dígitos, opcionalmente com hífen)
+  const matchCep = txt.match(/\b(\d{5})-?(\d{3})\b/);
+  if (matchCep){
+    const cep5 = parseInt(matchCep[1], 10);
+    if (cep5 && !isNaN(cep5)){
+      const zona = getZona(cep5);
+      if (zona && zona.nome && zona.nome !== 'SEM CEP' && zona.nome !== 'FORA DO RAIO (>35k)'){
+        return {
+          zona: zona.nome,
+          tipo: zona.tipo || 'SEM_CEP',
+          km: zona.km || 0,
+          cepDetectado: matchCep[1] + '-' + matchCep[2],
+          cidadeDetectada: null,
+          fonte: 'cep',
+        };
+      }
+    }
+  }
+
+  // 2) tentar achar nome de cidade (busca pela chave mais longa primeiro pra evitar "sao paulo" vs "sao bernardo")
+  const chavesOrdenadas = Object.keys(CIDADES_ZONA).sort((a,b) => b.length - a.length);
+  for (const chave of chavesOrdenadas){
+    // busca como palavra (com word boundaries em pt-BR é difícil; uso match com espaço/ponto antes/depois)
+    const regex = new RegExp(`(^|[\\s,.\\-])${chave.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}(?=$|[\\s,.\\-])`, 'i');
+    if (regex.test(txt)){
+      const c = CIDADES_ZONA[chave];
+      return {
+        zona: c.zona,
+        tipo: c.tipo,
+        km: c.km,
+        cidadeDetectada: chave.toUpperCase(),
+        cepDetectado: null,
+        fonte: 'cidade',
+      };
+    }
+  }
+
+  return null;
+}
+
 // ---------- UPLOAD ----------
 const uploadZone = document.getElementById('uploadZone');
 const fileInput = document.getElementById('fileInput');
@@ -2448,6 +2599,13 @@ function processData(aoa){
     if (pedido == null || String(pedido).trim() === '') continue;
     const cep5val = cep5(r[idx.cep]);
     const zona = getZona(cep5val);
+    // ---- análise da observação ----
+    const obsRaw = r[idx.obs] || '';
+    const obsLimpa = limparObservacao(obsRaw);
+    const temObsEnd = isObservacaoEndereco(obsRaw);
+    const enderecoExt = temObsEnd ? extrairEndereco(obsRaw) : '';
+    const zonaSugerida = temObsEnd ? inferirZonaDoEndereco(enderecoExt || obsRaw) : null;
+
     DADOS.push({
       pedido: String(pedido).trim(),
       status: (r[idx.status] || 'SEM STATUS').toString().trim().toUpperCase(),
@@ -2463,10 +2621,11 @@ function processData(aoa){
       tv:    (r[idx.tv]  || '').toString(),
       rota:  (r[idx.rota]|| '').toString(),
       tipo:  (r[idx.tipo]|| '').toString(),
-      obs:   (r[idx.obs] || '').toString(),
-      obsLimpa: limparObservacao(r[idx.obs] || ''),
-      temObsEndereco: isObservacaoEndereco(r[idx.obs] || ''),
-      enderecoExtraido: isObservacaoEndereco(r[idx.obs] || '') ? extrairEndereco(r[idx.obs] || '') : '',
+      obs:   obsRaw.toString(),
+      obsLimpa: obsLimpa,
+      temObsEndereco: temObsEnd,
+      enderecoExtraido: enderecoExt,
+      zonaSugerida: zonaSugerida, // {zona, tipo, km, cidadeDetectada, cepDetectado, fonte} ou null
       cidade:(r[idx.cidade]||'').toString(),
       romaneio: r[idx.romaneio]||'',
       horarioRaw: (r[idx.horario]||'').toString(),
@@ -3409,7 +3568,8 @@ function renderExec(){
       title:`${comObsEnd.length} pedido${comObsEnd.length>1?'s':''} com observação de endereço alternativo`,
       body:`O endereço de entrega pode ser <strong>diferente do CEP cadastrado</strong>. O motorista precisa ler a observação antes de sair.<br>
             Geralmente são clientes que pedem entrega em filial, obra, depósito ou casa do dono em vez do endereço fiscal.<br><br>
-            <strong>Ação crítica:</strong> confira no romaneio PDF — a observação aparece embaixo do nome do cliente em destaque âmbar.`,
+            <strong style="color:var(--accent)">O sistema sugere automaticamente a rota correta</strong> para cada pedido baseado no endereço alternativo — confira abaixo. Marcações:<br>
+            <span style="color:var(--accent)">→</span> mover para outra rota &nbsp;·&nbsp; <span style="color:var(--ok)">✓</span> já está na rota correta &nbsp;·&nbsp; <span style="color:var(--warn)">+</span> sem rota ativa nessa zona`,
       pedidos: ordenados,
       pedidosLabel: `Ver os ${comObsEnd.length} pedidos com endereço alternativo`,
       idCustomTarget: 'obs-endereco',
@@ -3449,6 +3609,51 @@ function renderExec(){
         <span class="ins-obs-icon">${p.temObsEndereco?'📍':'💬'}</span>
         <span class="ins-obs-text">${obsTxt.length > 150 ? obsTxt.substring(0,148)+'…' : obsTxt}</span>
       </div>` : '';
+
+    // sugestão de rota baseada na zonaSugerida do pedido
+    let sugestaoHtml = '';
+    if (p.temObsEndereco && p.zonaSugerida){
+      const sug = p.zonaSugerida;
+      const rotaMatch = acharRotaPorZona(sug.zona);
+      const detalheFonte = sug.fonte === 'cep'
+        ? `CEP ${sug.cepDetectado} detectado`
+        : `cidade "${sug.cidadeDetectada}" detectada`;
+
+      if (rotaMatch){
+        // achou rota — sugere mover
+        const mesmaRotaQueOriginal = rotaMatch.rota.pedidos.some(rp => rp.pedido === p.pedido);
+        if (mesmaRotaQueOriginal){
+          sugestaoHtml = `
+            <div class="ins-row-sugestao ins-row-sugestao-ok">
+              <span class="ins-sug-icon">✓</span>
+              <span class="ins-sug-text">
+                Já está na rota correta: <strong>#${rotaMatch.idx+1} ${rotaMatch.rota.nome}</strong>
+                <span class="ins-sug-fonte">(${detalheFonte})</span>
+              </span>
+            </div>`;
+        } else {
+          sugestaoHtml = `
+            <div class="ins-row-sugestao">
+              <span class="ins-sug-icon">→</span>
+              <span class="ins-sug-text">
+                Mover para <strong>rota sugerida #${rotaMatch.idx+1} · ${rotaMatch.rota.nome}</strong>
+                <span class="ins-sug-fonte">(${detalheFonte})</span>
+              </span>
+            </div>`;
+        }
+      } else {
+        // não tem rota existente — sugere criar
+        sugestaoHtml = `
+          <div class="ins-row-sugestao ins-row-sugestao-nova">
+            <span class="ins-sug-icon">+</span>
+            <span class="ins-sug-text">
+              Endereço cai em <strong>${sug.zona}</strong> — sem rota ativa nessa zona, considere criar uma
+              <span class="ins-sug-fonte">(${detalheFonte})</span>
+            </span>
+          </div>`;
+      }
+    }
+
     return `
     <div class="ins-row-wrap ${temObs?'has-obs':''}">
       <div class="ins-row">
@@ -3461,8 +3666,25 @@ function renderExec(){
         <span class="ins-rep">${p.rep || ''}</span>
       </div>
       ${obsHtml}
+      ${sugestaoHtml}
     </div>`;
   };
+
+  // Helper: dada uma zona-sugerida, encontra a rota da lista atual que cobre essa zona
+  // (considera rotas combinadas via zonasOrigem)
+  function acharRotaPorZona(nomeZona){
+    const rotas = window._rotasAtuais || [];
+    for (let i = 0; i < rotas.length; i++){
+      const r = rotas[i];
+      // 1) Match direto pelo nome
+      if (r.nome === nomeZona) return { idx: i, rota: r };
+      // 2) Se for rota combinada, verifica zonasOrigem
+      if (r.zonasOrigem && r.zonasOrigem.includes(nomeZona)) return { idx: i, rota: r };
+      // 3) Se for dividida, o nome tem "(parte X/Y)" — compara o rotaPaiNome
+      if (r.dividida && r.rotaPaiNome === nomeZona) return { idx: i, rota: r };
+    }
+    return null;
+  }
 
   document.getElementById('execInsights').innerHTML = insights.map((i, idx) => {
     const peds = i.pedidos || [];
