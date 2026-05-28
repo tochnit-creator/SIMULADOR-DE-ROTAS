@@ -1102,6 +1102,30 @@
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   }
 
+  /* Linha de observação anexada à parada */
+  .ins-row-wrap{
+    border-bottom:1px solid rgba(42,44,39,0.5);
+  }
+  .ins-row-wrap:last-child{border-bottom:none}
+  .ins-row-wrap > .ins-row{border-bottom:none}
+  .ins-row-wrap.has-obs > .ins-row{padding-bottom:4px}
+  .ins-row-obs{
+    padding:4px 14px 10px 56px;
+    font-size:11.5px;
+    color:var(--ink-dim);
+    line-height:1.4;
+    display:flex;gap:8px;align-items:flex-start;
+    background:rgba(255,255,255,0.01);
+  }
+  .ins-row-obs-endereco{
+    background:rgba(255,184,77,0.06);
+    border-left:3px solid var(--warn);
+    color:var(--ink);
+  }
+  .ins-obs-icon{font-size:13px;line-height:1.2;flex-shrink:0}
+  .ins-obs-text{flex:1;min-width:0}
+  .ins-row-obs-endereco .ins-obs-text{font-weight:500}
+
   @media(max-width:900px){
     .ins-row{
       grid-template-columns: 1fr 1fr;
@@ -1116,6 +1140,7 @@
     .ins-client{grid-column:1/3;grid-row:3;font-weight:500}
     .ins-city, .ins-rep{display:none}
     .ins-row-head{display:none}
+    .ins-row-obs{padding-left:14px}
   }
 
   /* EMPTY STATE */
@@ -2267,6 +2292,61 @@ function classificaJanela(j){
   return 'comercial';
 }
 
+// ---------- ANÁLISE DE OBSERVAÇÕES DO PEDIDO ----------
+// Limpa lixo automático ("CONSULTA DE ESTOQUE EM XX:XX") e devolve só o que é útil pro motorista.
+function limparObservacao(obs){
+  if (!obs) return '';
+  let s = String(obs).trim();
+  if (!s) return '';
+  // remover "CONSULTA DE ESTOQUE EM dd/mm/aa hh:mm" e variantes (com ou sem hora)
+  s = s.replace(/CONSULTA\s+DE\s+ESTOQUE\s+EM\s+\d{1,2}\/\d{1,2}\/\d{2,4}(\s+\d{1,2}:\d{2})?\s*/gi, '');
+  // remover tabs e quebras
+  s = s.replace(/[\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return s;
+}
+
+// Detecta se a observação contém referência a ENDEREÇO de entrega (alta importância p/ motorista)
+function isObservacaoEndereco(obs){
+  if (!obs) return false;
+  const t = String(obs).toLowerCase();
+  // padrões fortes
+  const padroes = [
+    /endere[çc]o(?:\s+(?:de|para|p\/|p\.))?\s+entrega/,
+    /entregar\s+(?:em|no|na)\s+(?:rua|av|avenida|alameda|estrada|rodovia)/,
+    /\bav(?:enida)?\s+[a-z]/,        // "av joão...", "avenida..."
+    /\br(?:ua|\.)\s+[a-z]/,           // "rua xxx", "r. xxx"
+    /\bestrada\s+/,
+    /\brodovia\s+/,
+    /\balameda\s+/,
+    /\btravessa\s+/,
+    /\bpra[çc]a\s+/,
+    /\brodov\b/,
+    /entregar\s+(?:em|no|na)/,
+    /n[uú]mero\s+\d+/,
+    /\bn[ºo°]\s*\d{2,}/,             // "nº 123"
+    /bairro\s+[a-z]/,
+  ];
+  return padroes.some(p => p.test(t));
+}
+
+// Extrai trecho que parece ser endereço (heurística — pega trecho a partir do gatilho)
+function extrairEndereco(obs){
+  if (!obs) return '';
+  const limpo = limparObservacao(obs);
+  if (!limpo) return '';
+  // tenta achar gatilho e pegar 80 chars a partir dele
+  const lower = limpo.toLowerCase();
+  const gatilhos = ['endereço para entrega','endereco para entrega','endereço de entrega','endereco de entrega','entregar em','entregar no','entregar na','entrega:','entregar:'];
+  for (const g of gatilhos){
+    const idx = lower.indexOf(g);
+    if (idx >= 0){
+      return limpo.substring(idx, idx + 120).trim();
+    }
+  }
+  // se não achou gatilho, retorna a obs limpa (até 120 chars)
+  return limpo.length > 120 ? limpo.substring(0,118) + '…' : limpo;
+}
+
 // ---------- UPLOAD ----------
 const uploadZone = document.getElementById('uploadZone');
 const fileInput = document.getElementById('fileInput');
@@ -2384,6 +2464,9 @@ function processData(aoa){
       rota:  (r[idx.rota]|| '').toString(),
       tipo:  (r[idx.tipo]|| '').toString(),
       obs:   (r[idx.obs] || '').toString(),
+      obsLimpa: limparObservacao(r[idx.obs] || ''),
+      temObsEndereco: isObservacaoEndereco(r[idx.obs] || ''),
+      enderecoExtraido: isObservacaoEndereco(r[idx.obs] || '') ? extrairEndereco(r[idx.obs] || '') : '',
       cidade:(r[idx.cidade]||'').toString(),
       romaneio: r[idx.romaneio]||'',
       horarioRaw: (r[idx.horario]||'').toString(),
@@ -2687,6 +2770,10 @@ function renderKpisGeneral(){
   if (rotasCombinadas > 0) subLinhas.push(`${rotasCombinadas} fundida${rotasCombinadas>1?'s':''} c/ vizinha`);
   if (paisDivididos.size > 0) subLinhas.push(`${paisDivididos.size} dividida${paisDivididos.size>1?'s':''} em ${rotasDivididas} partes`);
 
+  // pedidos com observação de endereço (atenção do motorista)
+  const comObsEndereco = DADOS.filter(d => d.temObsEndereco);
+  const comQualquerObs = DADOS.filter(d => d.obsLimpa && d.obsLimpa.length > 3);
+
   const html = `
     <div class="kpi accent">
       <div class="kpi-label">PEDIDOS TOTAIS</div>
@@ -2718,6 +2805,11 @@ function renderKpisGeneral(){
       <div class="kpi-value">${fmtKm(kmEst)}</div>
       <div class="kpi-sub">somatório por zona (ida)</div>
     </div>
+    <div class="kpi ${comObsEndereco.length>0?'warn':''}" id="kpiObsEndereco" style="cursor:pointer" title="Clique para ver a lista">
+      <div class="kpi-label">📍 OBS. DE ENDEREÇO</div>
+      <div class="kpi-value">${fmtInt(comObsEndereco.length)}</div>
+      <div class="kpi-sub">${comObsEndereco.length>0?'pedidos com endereço alternativo':'nenhum endereço alternativo'}</div>
+    </div>
     <div class="kpi ${semRota>0?'danger':''}">
       <div class="kpi-label">SEM ROTA</div>
       <div class="kpi-value">${fmtInt(semRota)}</div>
@@ -2725,6 +2817,22 @@ function renderKpisGeneral(){
     </div>
   `;
   document.getElementById('kpiGeneral').innerHTML = html;
+
+  // clique no KPI de obs endereço leva pro painel da diretoria com insight aberto
+  const kpiObs = document.getElementById('kpiObsEndereco');
+  if (kpiObs && comObsEndereco.length > 0){
+    kpiObs.addEventListener('click', () => {
+      // troca pra aba diretoria
+      document.querySelector('.tab[data-view="diretoria"]')?.click();
+      // após render, expande o insight de obs
+      setTimeout(() => {
+        const btn = document.querySelector('.insight-toggle[data-target^="ins-list-obs-endereco"]');
+        if (btn && !btn.classList.contains('open')) btn.click();
+        // scroll suave até ele
+        btn?.scrollIntoView({behavior:'smooth', block:'center'});
+      }, 250);
+    });
+  }
 }
 
 function renderFilters(){
@@ -3291,6 +3399,36 @@ function renderExec(){
       pedidosLabel: 'Ver pedidos fora do raio',
     });
   }
+  // ---- PEDIDOS COM OBSERVAÇÃO DE ENDEREÇO (atenção do motorista) ----
+  const comObsEnd = DADOS.filter(d => d.temObsEndereco);
+  if (comObsEnd.length > 0){
+    // ordenar por zona pra agrupar geograficamente
+    const ordenados = [...comObsEnd].sort((a,b) => (a.cep5||0) - (b.cep5||0));
+    insights.push({
+      icon:'📍', cls:'warn',
+      title:`${comObsEnd.length} pedido${comObsEnd.length>1?'s':''} com observação de endereço alternativo`,
+      body:`O endereço de entrega pode ser <strong>diferente do CEP cadastrado</strong>. O motorista precisa ler a observação antes de sair.<br>
+            Geralmente são clientes que pedem entrega em filial, obra, depósito ou casa do dono em vez do endereço fiscal.<br><br>
+            <strong>Ação crítica:</strong> confira no romaneio PDF — a observação aparece embaixo do nome do cliente em destaque âmbar.`,
+      pedidos: ordenados,
+      pedidosLabel: `Ver os ${comObsEnd.length} pedidos com endereço alternativo`,
+      idCustomTarget: 'obs-endereco',
+    });
+  }
+
+  // ---- TODAS AS OBSERVAÇÕES INTERNAS ÚTEIS ----
+  const comObsQualquer = DADOS.filter(d => d.obsLimpa && d.obsLimpa.length > 3 && !d.temObsEndereco);
+  if (comObsQualquer.length > 0){
+    insights.push({
+      icon:'💬', cls:'info',
+      title:`${comObsQualquer.length} pedido${comObsQualquer.length>1?'s':''} com outras observações internas`,
+      body:`Anotações de pagamento, prazo, brinde ou condições especiais que o motorista/conferente precisa ler.
+            Não são endereços alternativos — são instruções gerais. Tipo: "BOLETO 35/42/49", "ENVIAR BRINDE JUNTO", "LOJA FECHA 17H".`,
+      pedidos: comObsQualquer,
+      pedidosLabel: `Ver ${comObsQualquer.length} outras observações`,
+    });
+  }
+
   if (palm > 0){
     insights.push({
       icon:'⊙', cls:'info',
@@ -3303,16 +3441,28 @@ function renderExec(){
   }
 
   // helper para renderizar linha de pedido dentro do insight expandido
-  const renderInsightPedido = (p) => `
-    <div class="ins-row">
-      <span class="mono ins-ped">${p.pedido}</span>
-      <span class="pill ${statusPillClass(p.status)} ins-pill">${p.status}</span>
-      <span class="mono ins-cep">${p.cepFmt || '—'}</span>
-      <span class="ins-client" title="${(p.cliente||'').replace(/"/g,'&quot;')}">${p.cliente || '(sem cliente)'}</span>
-      <span class="ins-city">${p.cidade || ''}</span>
-      <span class="mono ins-val">${p.valor ? fmtBRL(p.valor) : '—'}</span>
-      <span class="ins-rep">${p.rep || ''}</span>
+  const renderInsightPedido = (p) => {
+    const obsTxt = p.enderecoExtraido || p.obsLimpa || '';
+    const temObs = obsTxt && obsTxt.length > 3;
+    const obsHtml = temObs ? `
+      <div class="ins-row-obs ${p.temObsEndereco?'ins-row-obs-endereco':''}">
+        <span class="ins-obs-icon">${p.temObsEndereco?'📍':'💬'}</span>
+        <span class="ins-obs-text">${obsTxt.length > 150 ? obsTxt.substring(0,148)+'…' : obsTxt}</span>
+      </div>` : '';
+    return `
+    <div class="ins-row-wrap ${temObs?'has-obs':''}">
+      <div class="ins-row">
+        <span class="mono ins-ped">${p.pedido}</span>
+        <span class="pill ${statusPillClass(p.status)} ins-pill">${p.status}</span>
+        <span class="mono ins-cep">${p.cepFmt || '—'}</span>
+        <span class="ins-client" title="${(p.cliente||'').replace(/"/g,'&quot;')}">${p.cliente || '(sem cliente)'}</span>
+        <span class="ins-city">${p.cidade || ''}</span>
+        <span class="mono ins-val">${p.valor ? fmtBRL(p.valor) : '—'}</span>
+        <span class="ins-rep">${p.rep || ''}</span>
+      </div>
+      ${obsHtml}
     </div>`;
+  };
 
   document.getElementById('execInsights').innerHTML = insights.map((i, idx) => {
     const peds = i.pedidos || [];
@@ -3347,6 +3497,7 @@ function renderExec(){
       }
     }
 
+    const listId = i.idCustomTarget ? `ins-list-${i.idCustomTarget}` : `ins-list-${idx}`;
     return `
       <div class="insight-card ${hasList?'insight-card-expandable':''}" data-ins-idx="${idx}">
         <div class="insight-icon ${i.cls}">${i.icon}</div>
@@ -3354,12 +3505,12 @@ function renderExec(){
           <div class="insight-title">${i.title}</div>
           <div class="insight-body">${i.body}</div>
           ${hasList ? `
-            <button class="insight-toggle" data-target="ins-list-${idx}">
+            <button class="insight-toggle" data-target="${listId}">
               <span class="toggle-ic">▾</span>
               <span class="toggle-txt">${i.pedidosLabel || `Ver ${peds.length} pedido${peds.length>1?'s':''}`}</span>
               <span class="ins-count">${peds.length}</span>
             </button>
-            <div class="ins-list hidden" id="ins-list-${idx}">
+            <div class="ins-list hidden" id="${listId}">
               <div class="ins-row ins-row-head">
                 <span>PEDIDO</span><span>STATUS</span><span>CEP</span>
                 <span>CLIENTE</span><span>CIDADE</span><span>VALOR</span><span>REPRES.</span>
@@ -3898,17 +4049,27 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
 
   y += 2;
 
-  const tabelaDados = peds.map((p, i) => ([
-    String(i+1).padStart(2,'0'),
-    p.pedido || '',
-    p.cepFmt || '',
-    '', // QR
-    truncarTexto(p.cliente || '(sem cliente)', 32),
-    truncarTexto(p.cidade || '', 14),
-    p.horario && p.horario.restrito ? p.horario.label : '',
-    p.valor ? fmtBRL(p.valor) : '—',
-    '', // recebido
-  ]));
+  const tabelaDados = peds.map((p, i) => {
+    const nomeCliente = truncarTexto(p.cliente || '(sem cliente)', 36);
+    const obs = p.enderecoExtraido || p.obsLimpa || '';
+    const obsTruncada = obs ? (obs.length > 100 ? obs.substring(0,98)+'…' : obs) : '';
+    // ícone na frente: 📍 endereço, 💬 outra obs
+    const prefixoObs = p.temObsEndereco ? '📍 ' : (obsTruncada ? '💬 ' : '');
+    const clienteCompleto = obsTruncada
+      ? nomeCliente + '\n' + prefixoObs + obsTruncada
+      : nomeCliente;
+    return [
+      String(i+1).padStart(2,'0'),
+      p.pedido || '',
+      p.cepFmt || '',
+      '', // QR
+      clienteCompleto,
+      truncarTexto(p.cidade || '', 14),
+      p.horario && p.horario.restrito ? p.horario.label : '',
+      p.valor ? fmtBRL(p.valor) : '—',
+      '', // recebido
+    ];
+  });
 
   doc.autoTable({
     startY: y,
@@ -3958,6 +4119,22 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
             if (!c.styles.fillColor || (c.styles.fillColor[0] === 253 && c.styles.fillColor[2] === 250)) return;
             if (!c.styles.fillColor) c.styles.fillColor = [255, 247, 235];
           });
+        }
+      }
+      // destacar linha INTEIRA quando o pedido tem obs de endereço (atenção máxima)
+      if (data.section === 'body'){
+        const ped = peds[data.row.index];
+        if (ped && ped.temObsEndereco){
+          // fundo âmbar suave em todas as células da linha (exceto recebido q fica em branco)
+          data.row.cells.forEach((c, ci) => {
+            if (ci === 8) return; // mantém branco a célula de assinatura
+            c.styles.fillColor = [255, 243, 220];
+          });
+          // borda esquerda âmbar grossa apenas na primeira célula
+          if (data.column.index === 0){
+            data.cell.styles.lineWidth = { left: 1.5, top: 0.1, right: 0.1, bottom: 0.1 };
+            data.cell.styles.lineColor = [194, 65, 12];
+          }
         }
       }
     },
