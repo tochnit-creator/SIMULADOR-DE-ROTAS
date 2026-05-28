@@ -484,6 +484,36 @@
     border:1px solid rgba(98,212,255,0.35);
     cursor:help;
   }
+  /* tag PESADO */
+  .pesado-tag{
+    display:inline-block;
+    font-family:'JetBrains Mono',monospace;
+    font-size:9.5px;
+    padding:1px 7px;
+    border-radius:6px;
+    margin-left:6px;
+    font-weight:700;
+    letter-spacing:0.5px;
+    vertical-align:middle;
+    background:rgba(255,91,42,0.15);
+    color:var(--accent-2);
+    border:1px solid rgba(255,91,42,0.4);
+    cursor:help;
+  }
+  .stop-row-pesado{
+    background:rgba(255,91,42,0.04);
+  }
+  .route-pesado-aviso{
+    margin-top:8px;
+    padding:9px 13px;
+    background:rgba(255,91,42,0.06);
+    border:1px solid rgba(255,91,42,0.25);
+    border-radius:9px;
+    font-size:12px;
+    color:var(--ink-dim);
+    line-height:1.45;
+  }
+  .route-pesado-aviso strong{color:var(--accent-2);font-weight:600}
   .stop-row-agrupada{
     background:rgba(98,212,255,0.04);
     border-left:2px solid rgba(98,212,255,0.4);
@@ -792,6 +822,82 @@
   .help-table > div:last-child{border-bottom:none}
   .help-table span:first-child{color:var(--ink-dim)}
   .help-table span:last-child{color:var(--ink);font-weight:600;font-family:'JetBrains Mono',monospace;font-size:11.5px}
+
+  /* SUB-ABAS (auto/manual) */
+  .subtabs{
+    display:flex;gap:6px;margin-bottom:16px;
+    border-bottom:1px solid var(--line);
+    padding-bottom:0;
+  }
+  .subtab{
+    background:transparent;border:none;
+    color:var(--ink-dim);
+    padding:10px 18px;
+    font-family:inherit;font-size:13.5px;font-weight:500;
+    cursor:pointer;
+    border-bottom:2px solid transparent;
+    margin-bottom:-1px;
+    transition:all .2s;
+  }
+  .subtab:hover{color:var(--ink)}
+  .subtab.active{
+    color:var(--accent);
+    border-bottom-color:var(--accent);
+    font-weight:600;
+  }
+
+  /* BUILDER MANUAL */
+  .manual-builder{
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:20px;
+    margin-bottom:18px;
+    background:linear-gradient(135deg, rgba(212,255,63,0.03), rgba(20,22,18,0.4));
+  }
+  .manual-head h3{
+    font-size:16px;font-weight:700;letter-spacing:-0.3px;margin-bottom:5px;
+  }
+  .manual-head p{
+    font-size:13px;color:var(--ink-dim);line-height:1.5;margin-bottom:16px;
+  }
+  .manual-form{
+    display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;
+  }
+  .manual-field{display:flex;flex-direction:column;gap:5px;flex:1;min-width:160px}
+  .manual-field-cep{flex:0 0 110px;min-width:110px}
+  .manual-field-status{flex:0 0 180px;min-width:160px}
+  .manual-field label{
+    font-family:'JetBrains Mono',monospace;font-size:10.5px;
+    color:var(--ink-dim);text-transform:uppercase;letter-spacing:1px;
+  }
+  .manual-field input, .manual-field select{
+    background:rgba(255,255,255,0.03);
+    border:1px solid var(--line);
+    color:var(--ink);
+    padding:10px 12px;border-radius:8px;
+    font-family:inherit;font-size:13px;outline:none;
+    transition:border-color .2s;
+  }
+  .manual-field input:focus, .manual-field select:focus{
+    border-color:var(--accent);
+    background:rgba(212,255,63,0.03);
+  }
+  .manual-field-cep input{font-family:'JetBrains Mono',monospace;letter-spacing:1px;text-align:center}
+  .manual-hint{
+    margin-top:14px;font-size:12px;color:var(--ink-mute);
+    padding:8px 12px;background:rgba(255,255,255,0.02);border-radius:8px;
+  }
+  .manual-hint strong{color:var(--accent);font-family:'JetBrains Mono',monospace}
+
+  .route-card-manual{
+    border-color:rgba(212,255,63,0.3);
+    background:linear-gradient(135deg, rgba(212,255,63,0.03), rgba(20,22,18,0.4));
+  }
+  .manual-empty{
+    text-align:center;padding:40px 20px;
+    color:var(--ink-mute);font-size:14px;
+    border:1px dashed var(--line);border-radius:12px;
+  }
 
   .routes-toolbar{
     display:flex;justify-content:space-between;align-items:center;
@@ -1356,6 +1462,116 @@
     background:rgba(212,255,63,0.04);
   }
 
+  /* ÁREAS DE ATENÇÃO */
+  .areas-add-form{
+    display:flex;flex-direction:column;gap:14px;
+    padding:16px;
+    background:rgba(255,184,77,0.04);
+    border:1px solid rgba(255,184,77,0.18);
+    border-radius:12px;
+  }
+  .areas-row-cep{display:flex;gap:12px}
+  .areas-row-cep .form-row{flex:1}
+  .areas-row-cep input{
+    font-family:'JetBrains Mono',monospace;
+    text-align:center;letter-spacing:1px;
+  }
+  .areas-add-form .route-action-btn{align-self:flex-start}
+
+  .areas-divider{
+    height:1px;background:var(--line);
+    margin:22px 0 14px;
+  }
+  .areas-section-title{
+    font-size:13px;font-weight:600;
+    color:var(--ink);margin-bottom:10px;
+    display:flex;align-items:center;gap:6px;
+  }
+  .areas-section-title span{color:var(--ink-mute);font-weight:400;font-family:'JetBrains Mono',monospace;font-size:11px}
+
+  .areas-list{display:flex;flex-direction:column;gap:8px}
+  .areas-list-empty{
+    text-align:center;padding:30px 16px;
+    color:var(--ink-mute);font-size:13px;
+    border:1px dashed var(--line);border-radius:10px;
+  }
+  .area-item{
+    display:flex;align-items:center;gap:12px;
+    padding:12px 14px;
+    border:1px solid var(--line);border-radius:10px;
+    background:rgba(255,184,77,0.03);
+    transition:all .15s;
+  }
+  .area-item:hover{
+    border-color:rgba(255,184,77,0.3);
+    background:rgba(255,184,77,0.06);
+  }
+  .area-item-icon{
+    font-size:18px;
+    color:var(--warn);
+    width:24px;text-align:center;flex-shrink:0;
+  }
+  .area-item-body{flex:1;min-width:0}
+  .area-item-nome{
+    font-size:13.5px;font-weight:600;color:var(--ink);
+    margin-bottom:2px;
+  }
+  .area-item-cep{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11.5px;color:var(--warn);
+    margin-right:8px;
+  }
+  .area-item-motivo{
+    font-size:12px;color:var(--ink-dim);
+    margin-top:3px;line-height:1.4;
+  }
+  .area-item-del{
+    background:transparent;border:1px solid var(--line);
+    color:var(--ink-mute);
+    width:30px;height:30px;border-radius:8px;
+    cursor:pointer;
+    font-size:16px;line-height:1;
+    flex-shrink:0;
+    transition:all .15s;
+  }
+  .area-item-del:hover{
+    border-color:var(--danger);
+    color:var(--danger);
+    background:rgba(255,80,102,0.08);
+  }
+
+  /* tag de atenção em card / parada */
+  .atencao-tag{
+    display:inline-block;
+    font-family:'JetBrains Mono',monospace;
+    font-size:9.5px;
+    padding:1px 7px;
+    border-radius:6px;
+    margin-left:6px;
+    font-weight:700;
+    letter-spacing:0.5px;
+    vertical-align:middle;
+    background:rgba(255,184,77,0.15);
+    color:var(--warn);
+    border:1px solid rgba(255,184,77,0.4);
+    cursor:help;
+  }
+  .stop-row-atencao{
+    background:rgba(255,184,77,0.05);
+    border-left:2px solid rgba(255,184,77,0.5);
+  }
+  .route-atencao-aviso{
+    margin-top:8px;
+    padding:9px 13px;
+    background:rgba(255,184,77,0.08);
+    border:1px solid rgba(255,184,77,0.3);
+    border-radius:9px;
+    font-size:12px;
+    color:var(--ink-dim);
+    line-height:1.45;
+  }
+  .route-atencao-aviso strong{color:var(--warn);font-weight:600}
+
   /* VALIDAÇÃO DA PLANILHA */
   .val-summary{
     padding:16px 18px;
@@ -1439,7 +1655,8 @@
       <img id="brandLogo" class="brand-logo" alt="logo" />
       <div class="brand-mark" id="brandMark">rota<span>·</span>central</div>
       <div class="brand-tag">v2.1 · SUPER ABC</div>
-      <button class="settings-btn hidden" id="btnSettings" title="Configurações da empresa">⚙ Configurações</button>
+      <!-- botão configurações removido permanentemente -->
+      <button class="settings-btn" id="btnAreasAtencao" title="Cadastrar áreas de atenção (CEPs de risco)">⚠ Áreas de Atenção</button>
     </div>
     <div class="hero-sub" id="heroSub">
       Sistema de roteirização inteligente por CEP. Carregue sua planilha, filtre por status,
@@ -1575,19 +1792,64 @@
             </p>
           </div>
         </details>
-        <div class="routes-toolbar">
-          <div class="toolbar-info" id="routesGlobalInfo">Carregue uma planilha pra ver as rotas</div>
-          <div class="toolbar-actions">
-            <button id="btnPDFTodos" class="route-action-btn primary">
-              <span>📄</span> Exportar TODOS os romaneios (PDF)
-            </button>
-            <button id="btnCSVTodos" class="route-action-btn">
-              <span>⬇</span> Exportar tudo CSV
-            </button>
-          </div>
+        <!-- SUB-ABAS: Automática vs Manual -->
+        <div class="subtabs">
+          <button class="subtab active" data-subtab="auto">⚙ Sugestões automáticas</button>
+          <button class="subtab" data-subtab="manual">✋ Montar rota manual</button>
         </div>
-        <div id="routeCards"></div>
+
+        <!-- SUB-VIEW: AUTOMÁTICA -->
+        <div id="subview-auto">
+          <div class="routes-toolbar">
+            <div class="toolbar-info" id="routesGlobalInfo">Carregue uma planilha pra ver as rotas</div>
+            <div class="toolbar-actions">
+              <button id="btnPDFTodos" class="route-action-btn primary">
+                <span>📄</span> Exportar TODOS os romaneios (PDF)
+              </button>
+              <button id="btnCSVTodos" class="route-action-btn">
+                <span>⬇</span> Exportar tudo CSV
+              </button>
+            </div>
+          </div>
+          <div id="routeCards"></div>
+        </div>
+
+        <!-- SUB-VIEW: MANUAL -->
+        <div id="subview-manual" class="hidden">
+          <div class="manual-builder">
+            <div class="manual-head">
+              <h3>Montar rota manualmente por faixa de CEP</h3>
+              <p>Defina um intervalo de CEP (ex: 09200 a 09399), dê um nome à rota e gere. Os pedidos dentro da faixa entram automaticamente. Pedidos de retira são ignorados.</p>
+            </div>
+            <div class="manual-form">
+              <div class="manual-field">
+                <label>Nome da rota</label>
+                <input type="text" id="manualNome" placeholder="Ex: Rota Especial Mauá Centro" maxlength="60" />
+              </div>
+              <div class="manual-field manual-field-cep">
+                <label>CEP inicial (5 díg.)</label>
+                <input type="text" id="manualCepIni" placeholder="09200" maxlength="5" inputmode="numeric" />
+              </div>
+              <div class="manual-field manual-field-cep">
+                <label>CEP final (5 díg.)</label>
+                <input type="text" id="manualCepFim" placeholder="09399" maxlength="5" inputmode="numeric" />
+              </div>
+              <div class="manual-field manual-field-status">
+                <label>Filtrar por status</label>
+                <select id="manualStatus">
+                  <option value="TODOS">Todos os status</option>
+                </select>
+              </div>
+              <button id="btnMontarManual" class="route-action-btn primary">Montar rota</button>
+            </div>
+            <div class="manual-hint" id="manualHint">
+              💡 Dica: para "comece com 092 até 093", use CEP inicial <strong>09200</strong> e final <strong>09399</strong>.
+            </div>
+          </div>
+          <div id="manualResult"></div>
+        </div>
       </div>
+      <!-- fim view-rotas -->
 
       <!-- VIEW MAPA DE CALOR -->
       <div class="section-body hidden" id="view-mapa">
@@ -1751,6 +2013,51 @@
     <div class="modal-foot">
       <button class="route-action-btn" data-close="modalValidation" id="btnValCancel">Cancelar e revisar planilha</button>
       <button class="route-action-btn primary" id="btnValConfirm">Continuar mesmo assim</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ÁREAS DE ATENÇÃO -->
+<div class="modal-overlay hidden" id="modalAreas">
+  <div class="modal-content" style="max-width:780px">
+    <div class="modal-head">
+      <div>
+        <h2>⚠ Áreas de Atenção</h2>
+        <p>Cadastre faixas de CEP onde o motorista deve ir com cuidado redobrado. Baseado na sua experiência, orientação da seguradora ou áreas restritas pela apólice. Os pedidos que caírem nessas faixas serão marcados automaticamente nos cards e no romaneio PDF.</p>
+      </div>
+      <button class="modal-close" data-close="modalAreas">×</button>
+    </div>
+    <div class="modal-body">
+      <!-- Formulário de adição -->
+      <div class="areas-add-form">
+        <div class="form-row">
+          <label>Nome da área (referência sua)</label>
+          <input type="text" id="areaNome" placeholder="Ex: Vila X em Carapicuíba" maxlength="80" />
+        </div>
+        <div class="areas-row-cep">
+          <div class="form-row">
+            <label>CEP inicial</label>
+            <input type="text" id="areaCepIni" placeholder="09200" maxlength="5" inputmode="numeric" />
+          </div>
+          <div class="form-row">
+            <label>CEP final</label>
+            <input type="text" id="areaCepFim" placeholder="09299" maxlength="5" inputmode="numeric" />
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Motivo / observação (opcional)</label>
+          <input type="text" id="areaMotivo" placeholder="Ex: Restrição da apólice · escoltar à tarde · evitar após 16h" maxlength="120" />
+        </div>
+        <button class="route-action-btn primary" id="btnAddArea">+ Adicionar área</button>
+      </div>
+
+      <!-- Lista de áreas cadastradas -->
+      <div class="areas-divider"></div>
+      <div class="areas-section-title">Áreas cadastradas <span id="areasCount">(0)</span></div>
+      <div id="areasList" class="areas-list"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="route-action-btn" data-close="modalAreas">Fechar</button>
     </div>
   </div>
 </div>
@@ -2445,6 +2752,64 @@ function classificaJanela(j){
   return 'comercial';
 }
 
+// ---------- DETECTORES PESADO / RETIRA ----------
+// Pesado: campo Setor contém "pesado"
+function isPesado(setor){
+  if (!setor) return false;
+  return /pesad/i.test(String(setor));
+}
+
+// Retira: cliente vem buscar no CD — NÃO entra em rota.
+// Fontes: (1) coluna Rota = "RETIRAS" (2) observação com padrões de retira.
+function isRetira(rota, obs){
+  // 1) campo Rota explicitamente "RETIRAS" / "RETIRA"
+  if (rota && /^\s*retiras?\s*$/i.test(String(rota))) return true;
+  // 2) observação indicando que o cliente busca
+  if (obs){
+    const t = String(obs).toLowerCase();
+    const padroes = [
+      /\bretira[r]?\b.*\b(cliente|vem|vai|busca)/,
+      /\b(cliente|ele|ela)\b.*\b(vem|vai)\b.*\bbusca/,
+      /\bvou\s+retirar\b/,
+      /\bcliente\s+ir[áa]\s+retirar\b/,
+      /\bretira\s+(em|no)\s+(loja|cd|base|balc[ãa]o)/,
+      /\bbalc[ãa]o\b/,
+      /\bretirar\s+(na|no|em)\b/,
+    ];
+    if (padroes.some(p => p.test(t))) return true;
+  }
+  return false;
+}
+
+// ---------- ÁREAS DE ATENÇÃO (cadastradas pelo usuário) ----------
+// Estrutura: [{cepIni: 9300, cepFim: 9399, nome: 'Vila X Carapicuíba', motivo: 'Apólice restringe', criadoEm: '2026-05-28'}]
+let AREAS_ATENCAO = [];
+
+function carregarAreasAtencao(){
+  try {
+    const raw = localStorage.getItem('rotacentral_areas_atencao');
+    if (raw){
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) AREAS_ATENCAO = parsed;
+    }
+  } catch(e){ console.warn('Falha ao ler áreas de atenção:', e); }
+}
+
+function salvarAreasAtencao(){
+  try {
+    localStorage.setItem('rotacentral_areas_atencao', JSON.stringify(AREAS_ATENCAO));
+  } catch(e){ alert('Não foi possível salvar (storage cheio?)'); }
+}
+
+// Dado um pedido (cep5), retorna a área de atenção que ele cai, ou null
+function getAreaAtencao(cep5){
+  if (!cep5 || !AREAS_ATENCAO.length) return null;
+  for (const a of AREAS_ATENCAO){
+    if (cep5 >= a.cepIni && cep5 <= a.cepFim) return a;
+  }
+  return null;
+}
+
 // ---------- ANÁLISE DE OBSERVAÇÕES DO PEDIDO ----------
 // Limpa lixo automático ("CONSULTA DE ESTOQUE EM XX:XX") e devolve só o que é útil pro motorista.
 function limparObservacao(obs){
@@ -2716,11 +3081,19 @@ function processData(aoa){
     const temObsEnd = isObservacaoEndereco(obsRaw);
     const enderecoExt = temObsEnd ? extrairEndereco(obsRaw) : '';
     const zonaSugerida = temObsEnd ? inferirZonaDoEndereco(enderecoExt || obsRaw) : null;
+    const setorVal = (r[idx.setor] || '').toString();
+    const rotaVal = (r[idx.rota] || '').toString();
+    const ehPesado = isPesado(setorVal);
+    const ehRetira = isRetira(rotaVal, obsRaw);
+    const areaAtenc = getAreaAtencao(cep5val);
 
     DADOS.push({
       pedido: String(pedido).trim(),
       status: (r[idx.status] || 'SEM STATUS').toString().trim().toUpperCase(),
-      setor: r[idx.setor] || '',
+      setor: setorVal,
+      pesado: ehPesado,
+      retira: ehRetira,
+      areaAtencao: areaAtenc, // {nome, motivo, cepIni, cepFim} ou null
       ccli: r[idx.ccli] || '',
       cep: r[idx.cep] || '',
       cep5: cep5val,
@@ -2730,7 +3103,7 @@ function processData(aoa){
       itens: parseFloat(r[idx.itens]||0) || 0,
       rep:   (r[idx.rep] || '').toString(),
       tv:    (r[idx.tv]  || '').toString(),
-      rota:  (r[idx.rota]|| '').toString(),
+      rota:  rotaVal,
       tipo:  (r[idx.tipo]|| '').toString(),
       obs:   obsRaw.toString(),
       obsLimpa: obsLimpa,
@@ -3043,6 +3416,10 @@ function renderKpisGeneral(){
   // pedidos com observação de endereço (atenção do motorista)
   const comObsEndereco = DADOS.filter(d => d.temObsEndereco);
   const comQualquerObs = DADOS.filter(d => d.obsLimpa && d.obsLimpa.length > 3);
+  // pesados e retira
+  const pedidosPesados = DADOS.filter(d => d.pesado);
+  const pedidosRetira = DADOS.filter(d => d.retira);
+  const pedidosAtencao = DADOS.filter(d => d.areaAtencao);
 
   const html = `
     <div class="kpi accent">
@@ -3075,6 +3452,21 @@ function renderKpisGeneral(){
       <div class="kpi-value">${fmtKm(kmEst)}</div>
       <div class="kpi-sub">somatório por zona (ida)</div>
     </div>
+    <div class="kpi ${pedidosRetira.length>0?'info':''}" id="kpiRetira" style="cursor:pointer" title="Clique para ver a lista">
+      <div class="kpi-label">🏪 RETIRA NO CD</div>
+      <div class="kpi-value">${fmtInt(pedidosRetira.length)}</div>
+      <div class="kpi-sub">${pedidosRetira.length>0?'cliente busca · fora de rota':'nenhuma retirada'}</div>
+    </div>
+    <div class="kpi ${pedidosPesados.length>0?'overload':''}" id="kpiPesados" style="cursor:pointer" title="Clique para ver a lista">
+      <div class="kpi-label">⬛ PEDIDOS PESADOS</div>
+      <div class="kpi-value">${fmtInt(pedidosPesados.length)}</div>
+      <div class="kpi-sub">${pedidosPesados.length>0?'atenção no carregamento':'nenhum pesado'}</div>
+    </div>
+    <div class="kpi ${pedidosAtencao.length>0?'warn':''}" id="kpiAtencao" style="cursor:pointer" title="Clique para ver a lista · Configure áreas no botão ⚠ do topo">
+      <div class="kpi-label">⚠ ÁREA DE ATENÇÃO</div>
+      <div class="kpi-value">${fmtInt(pedidosAtencao.length)}</div>
+      <div class="kpi-sub">${pedidosAtencao.length>0?'pedidos em zonas cadastradas':AREAS_ATENCAO.length?'nenhum pedido nas áreas':'cadastre áreas no botão ⚠'}</div>
+    </div>
     <div class="kpi ${comObsEndereco.length>0?'warn':''}" id="kpiObsEndereco" style="cursor:pointer" title="Clique para ver a lista">
       <div class="kpi-label">📍 OBS. DE ENDEREÇO</div>
       <div class="kpi-value">${fmtInt(comObsEndereco.length)}</div>
@@ -3088,21 +3480,24 @@ function renderKpisGeneral(){
   `;
   document.getElementById('kpiGeneral').innerHTML = html;
 
-  // clique no KPI de obs endereço leva pro painel da diretoria com insight aberto
-  const kpiObs = document.getElementById('kpiObsEndereco');
-  if (kpiObs && comObsEndereco.length > 0){
-    kpiObs.addEventListener('click', () => {
-      // troca pra aba diretoria
-      document.querySelector('.tab[data-view="diretoria"]')?.click();
-      // após render, expande o insight de obs
-      setTimeout(() => {
-        const btn = document.querySelector('.insight-toggle[data-target^="ins-list-obs-endereco"]');
-        if (btn && !btn.classList.contains('open')) btn.click();
-        // scroll suave até ele
-        btn?.scrollIntoView({behavior:'smooth', block:'center'});
-      }, 250);
-    });
-  }
+  // helper: clique num KPI leva pro insight da diretoria
+  const ligarKpiInsight = (kpiId, targetPrefix, temItens) => {
+    const el = document.getElementById(kpiId);
+    if (el && temItens){
+      el.addEventListener('click', () => {
+        document.querySelector('.tab[data-view="diretoria"]')?.click();
+        setTimeout(() => {
+          const btn = document.querySelector(`.insight-toggle[data-target^="${targetPrefix}"]`);
+          if (btn && !btn.classList.contains('open')) btn.click();
+          btn?.scrollIntoView({behavior:'smooth', block:'center'});
+        }, 250);
+      });
+    }
+  };
+  ligarKpiInsight('kpiObsEndereco', 'ins-list-obs-endereco', comObsEndereco.length > 0);
+  ligarKpiInsight('kpiRetira', 'ins-list-retira', pedidosRetira.length > 0);
+  ligarKpiInsight('kpiPesados', 'ins-list-pesados', pedidosPesados.length > 0);
+  ligarKpiInsight('kpiAtencao', 'ins-list-atencao', pedidosAtencao.length > 0);
 }
 
 function renderFilters(){
@@ -3190,9 +3585,9 @@ function renderTable(){
 // ---------- SUGESTÕES DE ROTA ----------
 function renderRoutes(){
   const cont = document.getElementById('routeCards');
-  // base = pedidos filtrados pelo status ativo, mas só CEP <= 35.000
+  // base = pedidos filtrados pelo status ativo, mas só CEP <= 35.000 e SEM retira
   let base = activeStatus === 'TODOS' ? DADOS : DADOS.filter(d=>d.status===activeStatus);
-  base = base.filter(d => d.cep5 != null && d.cep5 <= 35000);
+  base = base.filter(d => d.cep5 != null && d.cep5 <= 35000 && !d.retira);
 
   if (!base.length){
     cont.innerHTML = `<div class="empty"><div class="big">sem rotas para sugerir</div><p>Não há pedidos com CEP até 35.000 no filtro atual.</p></div>`;
@@ -3230,6 +3625,20 @@ function renderRoutes(){
     g.qtdParadas = qtdParadas;
     g.qtdPedidos = qtdPedidos;
 
+    // contar pedidos PESADOS na rota (considera agrupados)
+    const qtdPesados = g.pedidos.reduce((a,b)=>{
+      if (b.pedidosAgrupados) return a + b.pedidosAgrupados.filter(x=>x.pesado).length;
+      return a + (b.pesado ? 1 : 0);
+    }, 0);
+    g.qtdPesados = qtdPesados;
+
+    // contar pedidos em ÁREA DE ATENÇÃO na rota
+    const qtdAtencao = g.pedidos.reduce((a,b)=>{
+      if (b.pedidosAgrupados) return a + b.pedidosAgrupados.filter(x=>x.areaAtencao).length;
+      return a + (b.areaAtencao ? 1 : 0);
+    }, 0);
+    g.qtdAtencao = qtdAtencao;
+
     const totV = g.pedidos.reduce((a,b)=>a+(b.valorTotal!=null?b.valorTotal:b.valor),0);
     const totI = g.pedidos.reduce((a,b)=>a+(b.itensTotal!=null?b.itensTotal:b.itens),0);
     const cidades = [...new Set(g.pedidos.map(p=>p.cidade).filter(Boolean))];
@@ -3248,11 +3657,21 @@ function renderRoutes(){
       const agrupTag = p.ehAgrupada
         ? `<span class="agrupado-tag" title="${p.qtdPedidos} pedidos do mesmo cliente/endereço = 1 entrega só. Pedidos: ${p.pedidosNumeros.join(', ')}">📦 ${p.qtdPedidos} pedidos · 1 entrega</span>`
         : '';
+      // badge PESADO — se o pedido (ou algum agrupado) é pesado
+      const ehPesadoParada = p.pesado || (p.pedidosAgrupados && p.pedidosAgrupados.some(x=>x.pesado));
+      const pesadoTag = ehPesadoParada
+        ? `<span class="pesado-tag" title="Pedido marcado como PESADO no setor — requer atenção no carregamento">⬛ PESADO</span>`
+        : '';
+      // badge ATENÇÃO — pedido cai em área de risco cadastrada
+      const areaAt = p.areaAtencao || (p.pedidosAgrupados && p.pedidosAgrupados.find(x=>x.areaAtencao)?.areaAtencao);
+      const atencaoTag = areaAt
+        ? `<span class="atencao-tag" title="${areaAt.nome}${areaAt.motivo?' · '+areaAt.motivo:''}">⚠ ATENÇÃO</span>`
+        : '';
       return `
-      <div class="stop-row ${p.ehAgrupada?'stop-row-agrupada':''}">
+      <div class="stop-row ${p.ehAgrupada?'stop-row-agrupada':''} ${ehPesadoParada?'stop-row-pesado':''} ${areaAt?'stop-row-atencao':''}">
         <span class="stop-num">${String(idx+1).padStart(2,'0')}</span>
         <span class="mono stop-cep">${p.cepFmt}</span>
-        <span class="stop-client" title="${(p.cliente||'').replace(/"/g,'&quot;')}">${p.cliente||'(sem cliente)'} ${janelaTag} ${agrupTag}</span>
+        <span class="stop-client" title="${(p.cliente||'').replace(/"/g,'&quot;')}">${p.cliente||'(sem cliente)'} ${janelaTag} ${agrupTag} ${pesadoTag} ${atencaoTag}</span>
         <span class="stop-city">${p.cidade||''}</span>
         <span class="stop-val mono">${p.valor?fmtBRL(p.valor):'—'}</span>
         <span class="stop-items mono">${p.itens?fmtInt(p.itens)+' it':''}</span>
@@ -3379,6 +3798,8 @@ function renderRoutes(){
         </div>
 
         ${temAgrupamento ? `<div class="route-agrup-aviso">📦 <strong>${qtdPedidos - qtdParadas} pedido${qtdPedidos-qtdParadas>1?'s':''}</strong> ${qtdPedidos-qtdParadas>1?'são':'é'} do mesmo cliente/endereço de outra parada — o motorista faz <strong>${qtdParadas} parada${qtdParadas>1?'s':''}</strong> (não ${qtdPedidos}). Pedidos agrupados aparecem com 📦 na lista.</div>` : ''}
+        ${qtdPesados > 0 ? `<div class="route-pesado-aviso">⬛ <strong>${qtdPesados} pedido${qtdPesados>1?'s':''} PESADO${qtdPesados>1?'S':''}</strong> nesta rota — atenção no carregamento e ordem de descarga. Marcados com ⬛ na lista de paradas.</div>` : ''}
+        ${qtdAtencao > 0 ? `<div class="route-atencao-aviso">⚠ <strong>${qtdAtencao} pedido${qtdAtencao>1?'s':''} em ÁREA DE ATENÇÃO</strong> nesta rota — verificar restrições da seguradora antes da saída. Marcados com ⚠ na lista.</div>` : ''}
 
         <div class="route-tip ${dicaClass}">${dica}</div>
 
@@ -3684,6 +4105,75 @@ function renderExec(){
       pedidosLabel: 'Ver pedidos fora do raio',
     });
   }
+  // ---- PEDIDOS RETIRA (cliente busca no CD — fora de rota) ----
+  const pedRetira = DADOS.filter(d => d.retira);
+  if (pedRetira.length > 0){
+    const valorRetira = pedRetira.reduce((a,b)=>a+(b.valor||0), 0);
+    const ordRetira = [...pedRetira].sort((a,b)=>(a.cliente||'').localeCompare(b.cliente||''));
+    insights.push({
+      icon:'🏪', cls:'info',
+      title:`${pedRetira.length} pedido${pedRetira.length>1?'s':''} de RETIRA — cliente busca no CD`,
+      body:`Esses pedidos <strong>NÃO entram em nenhuma rota</strong> — o próprio cliente vem retirar na base.<br>
+            Total: <strong>${fmtBRL(valorRetira)}</strong>. Separe e deixe identificado no balcão/expedição.<br>
+            Detectados pela rota marcada como "RETIRAS" ou observação indicando que o cliente vem buscar.`,
+      pedidos: ordRetira,
+      pedidosLabel: `Ver os ${pedRetira.length} pedidos de retira`,
+      idCustomTarget: 'retira',
+    });
+  }
+
+  // ---- PEDIDOS PESADOS ----
+  const pedPesados = DADOS.filter(d => d.pesado);
+  if (pedPesados.length > 0){
+    const ordPesados = [...pedPesados].sort((a,b)=>(a.cep5||0)-(b.cep5||0));
+    // contar pesados por zona
+    const porZona = {};
+    pedPesados.forEach(p => { porZona[p.zona] = (porZona[p.zona]||0)+1; });
+    const zonasTxt = Object.entries(porZona).sort((a,b)=>b[1]-a[1]).slice(0,5)
+      .map(([z,n]) => `${z.split('·')[0].trim()} (${n})`).join(' · ');
+    insights.push({
+      icon:'⬛', cls:'overload',
+      title:`${pedPesados.length} pedido${pedPesados.length>1?'s':''} PESADO${pedPesados.length>1?'S':''} no setor`,
+      body:`Pedidos marcados como <strong>"Pesado"</strong> no setor — requerem atenção no carregamento (ordem de empilhamento, peso no eixo) e na descarga.<br>
+            Distribuição por zona: ${zonasTxt}.<br>
+            Cada rota mostra quantos pesados tem, e eles aparecem com a tag <strong style="color:var(--accent-2)">⬛ PESADO</strong> na lista de paradas e no romaneio.`,
+      pedidos: ordPesados,
+      pedidosLabel: `Ver os ${pedPesados.length} pedidos pesados`,
+      idCustomTarget: 'pesados',
+    });
+  }
+
+  // ---- PEDIDOS EM ÁREAS DE ATENÇÃO (cadastradas pelo usuário) ----
+  const pedAtencao = DADOS.filter(d => d.areaAtencao);
+  if (pedAtencao.length > 0){
+    const valorAt = pedAtencao.reduce((a,b)=>a+(b.valor||0), 0);
+    const ordAtencao = [...pedAtencao].sort((a,b)=>(a.cep5||0)-(b.cep5||0));
+    // agrupar por nome da área
+    const porArea = {};
+    pedAtencao.forEach(p => {
+      const nome = p.areaAtencao.nome;
+      if (!porArea[nome]) porArea[nome] = {qtd:0, valor:0, motivo: p.areaAtencao.motivo};
+      porArea[nome].qtd++;
+      porArea[nome].valor += (p.valor||0);
+    });
+    const detalhesAreas = Object.entries(porArea)
+      .sort((a,b)=>b[1].qtd-a[1].qtd)
+      .slice(0,5)
+      .map(([n,d]) => `<strong>${n}</strong> (${d.qtd} ped · ${fmtBRL(d.valor)})${d.motivo?` <span style="color:var(--ink-mute);font-size:11px">— ${d.motivo}</span>`:''}`)
+      .join('<br>');
+
+    insights.push({
+      icon:'⚠', cls:'warn',
+      title:`${pedAtencao.length} pedido${pedAtencao.length>1?'s':''} em ÁREA DE ATENÇÃO`,
+      body:`Pedidos que caem em zonas cadastradas como áreas de atenção (na sua experiência ou orientação da seguradora).<br>
+            Total: <strong>${fmtBRL(valorAt)}</strong>. <strong>Confirme a apólice/escolta</strong> antes da saída.<br><br>
+            ${detalhesAreas}${Object.keys(porArea).length>5?`<br><span style="color:var(--ink-mute)">+ ${Object.keys(porArea).length-5} outras áreas</span>`:''}`,
+      pedidos: ordAtencao,
+      pedidosLabel: `Ver os ${pedAtencao.length} pedidos em áreas de atenção`,
+      idCustomTarget: 'atencao',
+    });
+  }
+
   // ---- PEDIDOS COM OBSERVAÇÃO DE ENDEREÇO (atenção do motorista) ----
   const comObsEnd = DADOS.filter(d => d.temObsEndereco);
   if (comObsEnd.length > 0){
@@ -4409,8 +4899,22 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
 
   const tabelaDados = peds.map((p, i) => {
     let nomeCliente = truncarTexto(p.cliente || '(sem cliente)', 36);
+    // marcar PESADO
+    const ehPesadoParada = p.pesado || (p.pedidosAgrupados && p.pedidosAgrupados.some(x=>x.pesado));
+    if (ehPesadoParada){
+      nomeCliente = '[PESADO] ' + nomeCliente;
+    }
+    // marcar ATENÇÃO (área de risco cadastrada)
+    const areaAt = p.areaAtencao || (p.pedidosAgrupados && p.pedidosAgrupados.find(x=>x.areaAtencao)?.areaAtencao);
+    if (areaAt){
+      nomeCliente = '[ATENÇÃO] ' + nomeCliente;
+    }
     if (p.ehAgrupada){
       nomeCliente += '\n[ 1 ENTREGA = ' + p.qtdPedidos + ' PEDIDOS JUNTOS ]';
+    }
+    if (areaAt){
+      const motivoTxt = areaAt.motivo ? ` · ${areaAt.motivo}` : '';
+      nomeCliente += '\n>> ÁREA DE ATENÇÃO: ' + areaAt.nome + motivoTxt;
     }
     const obs = p.enderecoExtraido || p.obsLimpa || '';
     const obsTruncada = obs ? (obs.length > 90 ? obs.substring(0,88)+'…' : obs) : '';
@@ -4476,9 +4980,11 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
       if (data.section !== 'body') return;
       const ped = peds[data.row.index];
       if (!ped) return;
-      // prioridade de destaque: obs endereço (âmbar) > agrupada (azul) > janela manhã (creme)
+      const temAreaAt = !!(ped.areaAtencao || (ped.pedidosAgrupados && ped.pedidosAgrupados.some(x=>x.areaAtencao)));
+      // prioridade: ÁREA DE ATENÇÃO (amarelo forte) > obs endereço (âmbar) > agrupada (azul) > manhã (creme)
       let cor = null;
-      if (ped.temObsEndereco) cor = [255, 243, 220];
+      if (temAreaAt) cor = [255, 235, 180];
+      else if (ped.temObsEndereco) cor = [255, 243, 220];
       else if (ped.ehAgrupada) cor = [225, 240, 252];
       else if (ped.horario && ped.horario.restrito && classificaJanela(ped.horario) === 'manha') cor = [255, 247, 235];
       if (cor){
@@ -4492,7 +4998,12 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
       // borda lateral colorida na primeira coluna (desenhada manualmente p/ compatibilidade)
       if (data.section === 'body' && data.column.index === 0){
         const ped = peds[data.row.index];
-        if (ped && ped.temObsEndereco){
+        const temAreaAt = !!(ped && (ped.areaAtencao || (ped.pedidosAgrupados && ped.pedidosAgrupados.some(x=>x.areaAtencao))));
+        if (temAreaAt){
+          doc.setDrawColor(217, 119, 6); // amarelo escuro (atenção)
+          doc.setLineWidth(1.5);
+          doc.line(data.cell.x, data.cell.y, data.cell.x, data.cell.y + data.cell.height);
+        } else if (ped && ped.temObsEndereco){
           doc.setDrawColor(194, 65, 12); // laranja
           doc.setLineWidth(1.2);
           doc.line(data.cell.x, data.cell.y, data.cell.x, data.cell.y + data.cell.height);
@@ -4746,8 +5257,237 @@ document.getElementById('btnPDFTodos')?.addEventListener('click', () => {
 
 document.getElementById('btnCSVTodos')?.addEventListener('click', () => exportarCSVTodas());
 
+// ---------- SUB-ABAS (auto / manual) ----------
+document.querySelectorAll('.subtab').forEach(st => {
+  st.addEventListener('click', () => {
+    document.querySelectorAll('.subtab').forEach(x => x.classList.toggle('active', x===st));
+    const alvo = st.dataset.subtab;
+    document.getElementById('subview-auto').classList.toggle('hidden', alvo !== 'auto');
+    document.getElementById('subview-manual').classList.toggle('hidden', alvo !== 'manual');
+    // popular o select de status do manual
+    if (alvo === 'manual') popularStatusManual();
+  });
+});
+
+function popularStatusManual(){
+  const sel = document.getElementById('manualStatus');
+  if (!sel) return;
+  const atual = sel.value;
+  const opts = ['<option value="TODOS">Todos os status</option>']
+    .concat(STATUS_LIST.map(s => `<option value="${s}">${s}</option>`));
+  sel.innerHTML = opts.join('');
+  if (atual) sel.value = atual;
+}
+
+// guarda a rota manual montada (pra exportar PDF)
+let _rotaManualAtual = null;
+
+document.getElementById('btnMontarManual')?.addEventListener('click', () => {
+  const nome = (document.getElementById('manualNome').value || '').trim();
+  const cepIniRaw = (document.getElementById('manualCepIni').value || '').replace(/\D/g,'');
+  const cepFimRaw = (document.getElementById('manualCepFim').value || '').replace(/\D/g,'');
+  const statusFiltro = document.getElementById('manualStatus').value || 'TODOS';
+
+  if (!nome){ alert('Dê um nome à rota.'); return; }
+  if (cepIniRaw.length < 3 || cepFimRaw.length < 3){
+    alert('Informe CEP inicial e final com pelo menos 3 dígitos (ex: 092 ou 09200).');
+    return;
+  }
+  // normalizar pra 5 dígitos (preenche com zeros à direita pro início, e 9s pro fim se curto)
+  const cepIni = parseInt(cepIniRaw.padEnd(5,'0').substring(0,5), 10);
+  const cepFim = parseInt(cepFimRaw.padEnd(5,'9').substring(0,5), 10);
+  if (cepIni > cepFim){ alert('O CEP inicial deve ser menor que o final.'); return; }
+
+  if (!DADOS.length){ alert('Carregue uma planilha primeiro.'); return; }
+
+  // filtrar pedidos: dentro da faixa, não-retira, status (se filtrado)
+  let candidatos = DADOS.filter(d => {
+    if (d.retira) return false;
+    if (d.cep5 == null) return false;
+    if (d.cep5 < cepIni || d.cep5 > cepFim) return false;
+    if (statusFiltro !== 'TODOS' && d.status !== statusFiltro) return false;
+    return true;
+  });
+
+  if (!candidatos.length){
+    document.getElementById('manualResult').innerHTML =
+      `<div class="manual-empty">Nenhum pedido encontrado na faixa ${String(cepIni).padStart(5,'0')}–${String(cepFim).padStart(5,'0')}${statusFiltro!=='TODOS'?' com status '+statusFiltro:''}.</div>`;
+    _rotaManualAtual = null;
+    return;
+  }
+
+  // agrupar + otimizar
+  const paradas = agruparParadas(candidatos);
+  const otim = otimizarSequencia(paradas);
+
+  // determinar tipo de zona predominante (pra mín/máx no romaneio)
+  const tipoCount = {};
+  candidatos.forEach(d => { tipoCount[d.tipoZona] = (tipoCount[d.tipoZona]||0)+1; });
+  const tipoPredominante = Object.entries(tipoCount).sort((a,b)=>b[1]-a[1])[0][0] || 'CAPITAL_ABC';
+  const kmMax = Math.max(...candidatos.map(d=>d.kmZona||0));
+
+  const rota = {
+    nome: nome,
+    km: kmMax,
+    tipo: tipoPredominante,
+    pedidos: otim.pedidos,
+    foiOtimizada: otim.otimizada,
+    kmOtimizado: otim.kmTotal,
+    manual: true,
+    faixaCep: `${String(cepIni).padStart(5,'0')}–${String(cepFim).padStart(5,'0')}`,
+  };
+  _rotaManualAtual = rota;
+
+  renderRotaManual(rota, candidatos.length);
+});
+
+function renderRotaManual(rota, totalPedidosOriginais){
+  const peds = rota.pedidos;
+  const qtdParadas = peds.length;
+  const qtdPedidos = peds.reduce((a,b)=>a+(b.qtdPedidos||1), 0);
+  const totV = peds.reduce((a,b)=>a+(b.valorTotal!=null?b.valorTotal:b.valor),0);
+  const totI = peds.reduce((a,b)=>a+(b.itensTotal!=null?b.itensTotal:b.itens),0);
+  const qtdPesados = peds.reduce((a,b)=>{
+    if (b.pedidosAgrupados) return a + b.pedidosAgrupados.filter(x=>x.pesado).length;
+    return a + (b.pesado?1:0);
+  }, 0);
+  const minZ = getMinimo(rota.tipo), maxZ = getMaximo(rota.tipo);
+  let statusTxt = 'VIÁVEL', statusCls = 'route-status-ok';
+  if (totV < minZ){ statusTxt = `ABAIXO DO MÍNIMO (${fmtBRL(minZ)})`; statusCls='route-status-danger'; }
+  else if (totV > maxZ){ statusTxt = `ACIMA DO MÁXIMO (${fmtBRL(maxZ)})`; statusCls='route-status-overload'; }
+
+  const linhaParada = (p, idx) => {
+    const ehPesadoP = p.pesado || (p.pedidosAgrupados && p.pedidosAgrupados.some(x=>x.pesado));
+    const tags = [];
+    if (p.horario && p.horario.restrito) tags.push(`<span class="janela-tag janela-${classificaJanela(p.horario)}">⏱ ${p.horario.label}</span>`);
+    if (p.ehAgrupada) tags.push(`<span class="agrupado-tag">📦 ${p.qtdPedidos} ped · 1 entrega</span>`);
+    if (ehPesadoP) tags.push(`<span class="pesado-tag">⬛ PESADO</span>`);
+    return `
+    <div class="stop-row ${ehPesadoP?'stop-row-pesado':''} ${p.ehAgrupada?'stop-row-agrupada':''}">
+      <span class="stop-num">${String(idx+1).padStart(2,'0')}</span>
+      <span class="mono stop-cep">${p.cepFmt}</span>
+      <span class="stop-client">${p.cliente||'(sem cliente)'} ${tags.join(' ')}</span>
+      <span class="stop-city">${p.cidade||''}</span>
+      <span class="stop-val mono">${p.valor?fmtBRL(p.valor):'—'}</span>
+      <span class="pill ${statusPillClass(p.status)} stop-pill">${p.status}</span>
+    </div>`;
+  };
+
+  const html = `
+    <div class="route-card route-card-manual">
+      <div class="route-head">
+        <div>
+          <div class="route-name"><span class="badge">MANUAL</span>${rota.nome}</div>
+          <div class="route-zone">Faixa CEP ${rota.faixaCep} · ${[...new Set(peds.map(p=>p.cidade).filter(Boolean))].slice(0,5).join(' · ')}</div>
+        </div>
+        <span class="route-status ${statusCls}">${statusTxt}</span>
+      </div>
+      ${qtdPedidos > qtdParadas ? `<div class="route-agrup-aviso">📦 <strong>${qtdPedidos-qtdParadas} pedido(s)</strong> agrupados — motorista faz <strong>${qtdParadas} paradas</strong> (não ${qtdPedidos}).</div>` : ''}
+      ${qtdPesados > 0 ? `<div class="route-pesado-aviso">⬛ <strong>${qtdPesados} pedido(s) PESADO(S)</strong> nesta rota.</div>` : ''}
+      <div class="route-stops">
+        ${peds.map((p,j)=>linhaParada(p,j)).join('')}
+      </div>
+      <div class="route-stats">
+        <div><div class="route-stat-label">Paradas</div><div class="route-stat-val">${qtdParadas}${qtdPedidos>qtdParadas?`<span class="stat-sub-ped">${qtdPedidos} pedidos</span>`:''}</div></div>
+        <div><div class="route-stat-label">Valor Total</div><div class="route-stat-val" style="font-size:16px">${fmtBRL(totV)}</div></div>
+        <div><div class="route-stat-label">Itens</div><div class="route-stat-val">${fmtInt(totI)}</div></div>
+        <div><div class="route-stat-label">${rota.foiOtimizada?'KM Otimizado':'KM Est.'}</div><div class="route-stat-val" style="font-size:16px">${fmtKm(rota.foiOtimizada?rota.kmOtimizado:rota.km*2)}</div></div>
+      </div>
+      <div class="route-actions">
+        <button class="route-action-btn primary" id="btnPDFManual"><span>📄</span> Imprimir Romaneio (PDF)</button>
+        <button class="route-action-btn" id="btnCSVManual"><span>⬇</span> Exportar CSV</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('manualResult').innerHTML = html;
+
+  document.getElementById('btnPDFManual')?.addEventListener('click', () => {
+    if (_rotaManualAtual) gerarPDFRomaneio([_rotaManualAtual]);
+  });
+  document.getElementById('btnCSVManual')?.addEventListener('click', () => {
+    if (_rotaManualAtual) exportarCSVRota(_rotaManualAtual);
+  });
+}
+
 // ---------- HANDLERS: MODAL DE CONFIGURAÇÕES ----------
 document.getElementById('btnSettings')?.addEventListener('click', abrirModalConfig);
+
+// ---------- HANDLERS: ÁREAS DE ATENÇÃO ----------
+document.getElementById('btnAreasAtencao')?.addEventListener('click', () => {
+  renderAreasLista();
+  document.getElementById('modalAreas').classList.remove('hidden');
+});
+
+document.getElementById('btnAddArea')?.addEventListener('click', () => {
+  const nome = (document.getElementById('areaNome').value || '').trim();
+  const cepIniRaw = (document.getElementById('areaCepIni').value || '').replace(/\D/g,'');
+  const cepFimRaw = (document.getElementById('areaCepFim').value || '').replace(/\D/g,'');
+  const motivo = (document.getElementById('areaMotivo').value || '').trim();
+
+  if (!nome){ alert('Dê um nome de referência à área.'); return; }
+  if (cepIniRaw.length < 3 || cepFimRaw.length < 3){
+    alert('Informe CEP inicial e final com pelo menos 3 dígitos.');
+    return;
+  }
+  const cepIni = parseInt(cepIniRaw.padEnd(5,'0').substring(0,5), 10);
+  const cepFim = parseInt(cepFimRaw.padEnd(5,'9').substring(0,5), 10);
+  if (cepIni > cepFim){ alert('CEP inicial deve ser menor ou igual ao final.'); return; }
+
+  AREAS_ATENCAO.push({
+    nome, cepIni, cepFim, motivo,
+    criadoEm: new Date().toISOString().substring(0,10),
+  });
+  salvarAreasAtencao();
+  // limpar campos
+  document.getElementById('areaNome').value = '';
+  document.getElementById('areaCepIni').value = '';
+  document.getElementById('areaCepFim').value = '';
+  document.getElementById('areaMotivo').value = '';
+  renderAreasLista();
+  // se já há dados carregados, recalcular áreas dos pedidos e re-renderizar tudo
+  if (DADOS.length){
+    DADOS.forEach(d => { d.areaAtencao = getAreaAtencao(d.cep5); });
+    renderAll();
+  }
+});
+
+function renderAreasLista(){
+  const cont = document.getElementById('areasList');
+  document.getElementById('areasCount').textContent = `(${AREAS_ATENCAO.length})`;
+  if (!AREAS_ATENCAO.length){
+    cont.innerHTML = `<div class="areas-list-empty">Nenhuma área cadastrada ainda. Use o formulário acima.</div>`;
+    return;
+  }
+  cont.innerHTML = AREAS_ATENCAO.map((a, i) => `
+    <div class="area-item">
+      <div class="area-item-icon">⚠</div>
+      <div class="area-item-body">
+        <div class="area-item-nome">${a.nome}</div>
+        <div>
+          <span class="area-item-cep">CEP ${String(a.cepIni).padStart(5,'0')} – ${String(a.cepFim).padStart(5,'0')}</span>
+          <span style="font-size:11px;color:var(--ink-mute)">cadastrada em ${a.criadoEm||'—'}</span>
+        </div>
+        ${a.motivo ? `<div class="area-item-motivo">↳ ${a.motivo}</div>` : ''}
+      </div>
+      <button class="area-item-del" data-idx="${i}" title="Remover">×</button>
+    </div>
+  `).join('');
+  cont.querySelectorAll('.area-item-del').forEach(b => {
+    b.addEventListener('click', () => {
+      const idx = parseInt(b.dataset.idx, 10);
+      const a = AREAS_ATENCAO[idx];
+      if (confirm(`Remover a área "${a.nome}"?`)){
+        AREAS_ATENCAO.splice(idx, 1);
+        salvarAreasAtencao();
+        renderAreasLista();
+        if (DADOS.length){
+          DADOS.forEach(d => { d.areaAtencao = getAreaAtencao(d.cep5); });
+          renderAll();
+        }
+      }
+    });
+  });
+}
 
 document.querySelectorAll('[data-close]').forEach(el => {
   el.addEventListener('click', () => fecharModal(el.dataset.close));
@@ -4824,6 +5564,7 @@ document.getElementById('btnResetConfig')?.addEventListener('click', () => {
 
 // Inicializar config no carregamento
 carregarConfig();
+carregarAreasAtencao();
 
 // === DESENHAR ROTAS NO MAPA (linhas conectando paradas) ===
 function desenharRotasNoMapa(){
