@@ -468,6 +468,48 @@
     border:1px solid var(--line);
   }
 
+  /* tag de pedidos agrupados (mesma entrega) */
+  .agrupado-tag{
+    display:inline-block;
+    font-family:'JetBrains Mono',monospace;
+    font-size:9.5px;
+    padding:1px 7px;
+    border-radius:6px;
+    margin-left:6px;
+    font-weight:700;
+    letter-spacing:0.3px;
+    vertical-align:middle;
+    background:rgba(98,212,255,0.15);
+    color:var(--info);
+    border:1px solid rgba(98,212,255,0.35);
+    cursor:help;
+  }
+  .stop-row-agrupada{
+    background:rgba(98,212,255,0.04);
+    border-left:2px solid rgba(98,212,255,0.4);
+  }
+  /* sub-label de pedidos no stat de paradas */
+  .stat-sub-ped{
+    display:block;
+    font-size:10px;
+    color:var(--info);
+    font-weight:600;
+    font-family:'JetBrains Mono',monospace;
+    margin-top:1px;
+  }
+  /* aviso de agrupamento no card */
+  .route-agrup-aviso{
+    margin-top:10px;
+    padding:9px 13px;
+    background:rgba(98,212,255,0.06);
+    border:1px solid rgba(98,212,255,0.2);
+    border-radius:9px;
+    font-size:12px;
+    color:var(--ink-dim);
+    line-height:1.45;
+  }
+  .route-agrup-aviso strong{color:var(--info);font-weight:600}
+
   /* indicador "rota otimizada" */
   .opt-badge{
     display:inline-block;
@@ -2109,6 +2151,75 @@ function haversine(lat1, lng1, lat2, lng2){
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
+// ---------- AGRUPAMENTO DE PARADAS (mesma entrega) ----------
+// Pedidos do MESMO cliente + MESMO CEP = 1 parada física (motorista para 1 vez).
+// Recebe array de pedidos e retorna array de "paradas", cada uma com:
+//   { ...primeiroPedido, pedidosAgrupados: [...], qtdPedidos, valorTotal, itensTotal, ehAgrupada }
+function agruparParadas(pedidos){
+  const mapa = new Map();
+  pedidos.forEach(p => {
+    // chave: cliente normalizado + cep
+    const clienteKey = (p.cliente || '').trim().toUpperCase().replace(/\s+/g, ' ');
+    const cepKey = p.cep5 || (p.cep || '').toString().replace(/\D/g,'').substring(0,8) || 'sem';
+    const chave = `${clienteKey}||${cepKey}`;
+    if (!mapa.has(chave)){
+      mapa.set(chave, []);
+    }
+    mapa.get(chave).push(p);
+  });
+
+  const paradas = [];
+  mapa.forEach(grupo => {
+    if (grupo.length === 1){
+      // parada simples — mantém o pedido como está, mas adiciona metadados
+      const p = grupo[0];
+      paradas.push({
+        ...p,
+        pedidosAgrupados: [p],
+        qtdPedidos: 1,
+        valorTotal: p.valor || 0,
+        itensTotal: p.itens || 0,
+        ehAgrupada: false,
+      });
+    } else {
+      // parada AGRUPADA — soma valores/itens, junta os pedidos
+      // usa o primeiro pedido como base (cliente, cep, etc), mas com totais consolidados
+      const base = grupo[0];
+      const valorTotal = grupo.reduce((a,b)=>a+(b.valor||0), 0);
+      const itensTotal = grupo.reduce((a,b)=>a+(b.itens||0), 0);
+      // se algum dos pedidos tem janela de horário restrita, usa a mais restritiva (menor fim)
+      let horario = base.horario;
+      grupo.forEach(g => {
+        if (g.horario && g.horario.restrito){
+          if (!horario || !horario.restrito) horario = g.horario;
+          else if (g.horario.fim != null && (horario.fim == null || g.horario.fim < horario.fim)) horario = g.horario;
+        }
+      });
+      // se algum tem obs de endereço, propaga (prioriza o que tem)
+      const comObs = grupo.find(g => g.temObsEndereco) || base;
+      paradas.push({
+        ...base,
+        valor: valorTotal,      // sobrescreve pra somar no resto do sistema
+        itens: itensTotal,
+        valorTotal,
+        itensTotal,
+        horario,
+        temObsEndereco: comObs.temObsEndereco,
+        enderecoExtraido: comObs.enderecoExtraido,
+        obsLimpa: comObs.obsLimpa,
+        zonaSugerida: comObs.zonaSugerida,
+        pedidosAgrupados: grupo,
+        qtdPedidos: grupo.length,
+        ehAgrupada: true,
+        // lista de números de pedido pra exibição
+        pedidosNumeros: grupo.map(g => g.pedido),
+      });
+    }
+  });
+
+  return paradas;
+}
+
 // Otimiza a sequência de paradas de uma rota
 // Retorna { pedidos: [...], kmTotal: number, otimizada: bool }
 function otimizarSequencia(pedidos){
@@ -3103,15 +3214,24 @@ function renderRoutes(){
   const lista = rotasFusionadas.sort((a,b)=>a.km-b.km || a.nome.localeCompare(b.nome));
 
   cont.innerHTML = lista.map((g,i) => {
+    // AGRUPAR paradas (mesmo cliente+CEP = 1 parada) ANTES de otimizar
+    const paradas = agruparParadas(g.pedidos);
     // OTIMIZAR sequência das paradas (TSP + janelas de horário)
-    const otim = otimizarSequencia(g.pedidos);
-    g.pedidos = otim.pedidos;
+    const otim = otimizarSequencia(paradas);
+    g.pedidos = otim.pedidos; // agora são "paradas" (podem ter pedidosAgrupados)
     g.kmOtimizado = otim.kmTotal;
     g.foiOtimizada = otim.otimizada;
     g.paradasManha = otim.paradasManha || 0;
 
-    const totV = g.pedidos.reduce((a,b)=>a+b.valor,0);
-    const totI = g.pedidos.reduce((a,b)=>a+b.itens,0);
+    // contagem: paradas (lugares) vs pedidos (documentos)
+    const qtdParadas = g.pedidos.length;
+    const qtdPedidos = g.pedidos.reduce((a,b)=>a+(b.qtdPedidos||1), 0);
+    const temAgrupamento = qtdPedidos > qtdParadas;
+    g.qtdParadas = qtdParadas;
+    g.qtdPedidos = qtdPedidos;
+
+    const totV = g.pedidos.reduce((a,b)=>a+(b.valorTotal!=null?b.valorTotal:b.valor),0);
+    const totI = g.pedidos.reduce((a,b)=>a+(b.itensTotal!=null?b.itensTotal:b.itens),0);
     const cidades = [...new Set(g.pedidos.map(p=>p.cidade).filter(Boolean))];
     // KM total: usa TSP se calculado, senão estimativa por zona
     const extraIntraZona = g.combinada ? (g.zonasOrigem.length-1) * 5 : 0;
@@ -3124,11 +3244,15 @@ function renderRoutes(){
       const janelaTag = p.horario && p.horario.restrito
         ? `<span class="janela-tag janela-${classificaJanela(p.horario)}" title="Janela: ${p.horario.label}">⏱ ${p.horario.label}</span>`
         : '';
+      // badge de agrupamento: "2 pedidos · 1 entrega"
+      const agrupTag = p.ehAgrupada
+        ? `<span class="agrupado-tag" title="${p.qtdPedidos} pedidos do mesmo cliente/endereço = 1 entrega só. Pedidos: ${p.pedidosNumeros.join(', ')}">📦 ${p.qtdPedidos} pedidos · 1 entrega</span>`
+        : '';
       return `
-      <div class="stop-row">
+      <div class="stop-row ${p.ehAgrupada?'stop-row-agrupada':''}">
         <span class="stop-num">${String(idx+1).padStart(2,'0')}</span>
         <span class="mono stop-cep">${p.cepFmt}</span>
-        <span class="stop-client" title="${(p.cliente||'').replace(/"/g,'&quot;')}">${p.cliente||'(sem cliente)'} ${janelaTag}</span>
+        <span class="stop-client" title="${(p.cliente||'').replace(/"/g,'&quot;')}">${p.cliente||'(sem cliente)'} ${janelaTag} ${agrupTag}</span>
         <span class="stop-city">${p.cidade||''}</span>
         <span class="stop-val mono">${p.valor?fmtBRL(p.valor):'—'}</span>
         <span class="stop-items mono">${p.itens?fmtInt(p.itens)+' it':''}</span>
@@ -3233,8 +3357,8 @@ function renderRoutes(){
 
         <div class="route-stats">
           <div>
-            <div class="route-stat-label">Pedidos</div>
-            <div class="route-stat-val">${g.pedidos.length}</div>
+            <div class="route-stat-label">Paradas</div>
+            <div class="route-stat-val">${qtdParadas}${temAgrupamento?`<span class="stat-sub-ped">${qtdPedidos} pedidos</span>`:''}</div>
           </div>
           <div>
             <div class="route-stat-label">Valor Total</div>
@@ -3253,6 +3377,8 @@ function renderRoutes(){
             <div class="route-stat-val" style="font-size:16px">${kmTotal?fmtBRL(totV/kmTotal):'—'}</div>
           </div>
         </div>
+
+        ${temAgrupamento ? `<div class="route-agrup-aviso">📦 <strong>${qtdPedidos - qtdParadas} pedido${qtdPedidos-qtdParadas>1?'s':''}</strong> ${qtdPedidos-qtdParadas>1?'são':'é'} do mesmo cliente/endereço de outra parada — o motorista faz <strong>${qtdParadas} parada${qtdParadas>1?'s':''}</strong> (não ${qtdPedidos}). Pedidos agrupados aparecem com 📦 na lista.</div>` : ''}
 
         <div class="route-tip ${dicaClass}">${dica}</div>
 
@@ -4068,15 +4194,25 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
   const M = 12; // margem lateral
   const W = PW - 2*M; // largura útil
 
-  // pedidos
+  // pedidos → garantir que estão agrupados (mesmo cliente+CEP = 1 parada)
+  // se a rota já passou pelo renderRoutes, rota.pedidos já é agrupado; senão agrupa agora
+  let pedsBase = rota.pedidos;
+  const jaAgrupado = pedsBase.some(p => p.pedidosAgrupados);
+  if (!jaAgrupado){
+    pedsBase = agruparParadas(pedsBase);
+  }
   let peds;
   if (rota.foiOtimizada){
-    peds = [...rota.pedidos];
+    peds = [...pedsBase];
   } else {
-    peds = [...rota.pedidos].sort((a,b)=>(a.cep5||0)-(b.cep5||0));
+    peds = [...pedsBase].sort((a,b)=>(a.cep5||0)-(b.cep5||0));
   }
-  const totV = peds.reduce((a,b)=>a+(b.valor||0),0);
-  const totI = peds.reduce((a,b)=>a+(b.itens||0),0);
+  const totV = peds.reduce((a,b)=>a+(b.valorTotal!=null?b.valorTotal:(b.valor||0)),0);
+  const totI = peds.reduce((a,b)=>a+(b.itensTotal!=null?b.itensTotal:(b.itens||0)),0);
+  // contagem paradas vs pedidos
+  const qtdParadas = peds.length;
+  const qtdPedidos = peds.reduce((a,b)=>a+(b.qtdPedidos||1), 0);
+  const temAgrupamento = qtdPedidos > qtdParadas;
   const minimoZona = getMinimo(rota.tipo);
   const maximoZona = getMaximo(rota.tipo);
 
@@ -4249,7 +4385,7 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
     ? rota.kmOtimizado
     : (rota.km*2 + Math.max(0, peds.length-1)*1.2 + (rota.combinada?(rota.zonasOrigem.length-1)*5:0));
 
-  drawCampoFatura(doc, M + 2,                    y, col4W - 0.5, blocoH3, 'QTDE. PARADAS', String(peds.length), COR_INK, COR_INK_DIM, COR_LINE_SOFT);
+  drawCampoFatura(doc, M + 2,                    y, col4W - 0.5, blocoH3, 'QTDE. PARADAS', temAgrupamento ? `${qtdParadas} (${qtdPedidos} ped.)` : String(qtdParadas), COR_INK, COR_INK_DIM, COR_LINE_SOFT);
   drawCampoFatura(doc, M + 2 + col4W + 0.5,      y, col4W - 0.5, blocoH3, 'VALOR TOTAL',  fmtBRL(totV),         COR_INK, COR_INK_DIM, COR_LINE_SOFT);
   drawCampoFatura(doc, M + 2 + 2*(col4W + 0.5),  y, col4W - 0.5, blocoH3, 'QTDE. ITENS',  fmtInt(totI),         COR_INK, COR_INK_DIM, COR_LINE_SOFT);
   drawCampoFatura(doc, M + 2 + 3*(col4W + 0.5),  y, col4W - 0.5, blocoH3, 'DISTÂNCIA EST.', Math.round(kmTotal) + ' km', COR_INK, COR_INK_DIM, COR_LINE_SOFT);
@@ -4272,23 +4408,27 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
   y += 2;
 
   const tabelaDados = peds.map((p, i) => {
-    const nomeCliente = truncarTexto(p.cliente || '(sem cliente)', 36);
+    let nomeCliente = truncarTexto(p.cliente || '(sem cliente)', 36);
+    if (p.ehAgrupada){
+      nomeCliente += '\n[ 1 ENTREGA = ' + p.qtdPedidos + ' PEDIDOS JUNTOS ]';
+    }
     const obs = p.enderecoExtraido || p.obsLimpa || '';
-    const obsTruncada = obs ? (obs.length > 100 ? obs.substring(0,98)+'…' : obs) : '';
-    // ícone na frente: 📍 endereço, 💬 outra obs
+    const obsTruncada = obs ? (obs.length > 90 ? obs.substring(0,88)+'…' : obs) : '';
     const prefixoObs = p.temObsEndereco ? '📍 ' : (obsTruncada ? '💬 ' : '');
-    const clienteCompleto = obsTruncada
-      ? nomeCliente + '\n' + prefixoObs + obsTruncada
-      : nomeCliente;
+    let clienteCompleto = nomeCliente;
+    if (obsTruncada) clienteCompleto += '\n' + prefixoObs + obsTruncada;
+    const colPedido = p.ehAgrupada
+      ? p.pedidosNumeros.join('\n')
+      : (p.pedido || '');
     return [
       String(i+1).padStart(2,'0'),
-      p.pedido || '',
+      colPedido,
       p.cepFmt || '',
       '', // QR
       clienteCompleto,
       truncarTexto(p.cidade || '', 14),
       p.horario && p.horario.restrito ? p.horario.label : '',
-      p.valor ? fmtBRL(p.valor) : '—',
+      (p.valorTotal!=null?p.valorTotal:p.valor) ? fmtBRL(p.valorTotal!=null?p.valorTotal:p.valor) : '—',
       '', // recebido
     ];
   });
@@ -4358,6 +4498,17 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
             data.cell.styles.lineColor = [194, 65, 12];
           }
         }
+        // destacar parada AGRUPADA (azul claro) — só se não for obs endereço
+        if (ped && ped.ehAgrupada && !ped.temObsEndereco){
+          data.row.cells.forEach((c, ci) => {
+            if (ci === 8) return;
+            c.styles.fillColor = [225, 240, 252];
+          });
+          if (data.column.index === 0){
+            data.cell.styles.lineWidth = { left: 1.5, top: 0.1, right: 0.1, bottom: 0.1 };
+            data.cell.styles.lineColor = [29, 78, 216];
+          }
+        }
       }
     },
     didDrawCell: (data) => {
@@ -4417,8 +4568,11 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
   doc.setTextColor(...COR_INK);
   doc.setFont('helvetica','bold');
   doc.setFontSize(11);
+  const txtParadas = temAgrupamento
+    ? `${qtdParadas} paradas (${qtdPedidos} pedidos)`
+    : `${qtdParadas} paradas`;
   doc.text(
-    `${peds.length} paradas   |   ${fmtBRL(totV)}   |   ${fmtInt(totI)} itens   |   ${Math.round(kmTotal)} km`,
+    `${txtParadas}   |   ${fmtBRL(totV)}   |   ${fmtInt(totI)} itens   |   ${Math.round(kmTotal)} km`,
     M + 5, rodapeY + 8.5
   );
 
