@@ -677,6 +677,79 @@
   }
 
   /* AÇÕES DE EXPORTAÇÃO */
+  /* AJUDA COLAPSÁVEL — "Como funciona" */
+  .help-toggle{
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:rgba(255,255,255,0.012);
+    margin-bottom:14px;
+    overflow:hidden;
+    transition:border-color .2s;
+  }
+  .help-toggle:hover{border-color:rgba(212,255,63,0.25)}
+  .help-toggle[open]{border-color:rgba(212,255,63,0.3);background:rgba(212,255,63,0.02)}
+  .help-toggle summary{
+    list-style:none;cursor:pointer;
+    padding:12px 18px;
+    display:flex;align-items:center;gap:12px;
+    font-size:13.5px;font-weight:600;color:var(--ink);
+    user-select:none;
+    transition:background .15s;
+  }
+  .help-toggle summary::-webkit-details-marker{display:none}
+  .help-toggle summary::marker{display:none}
+  .help-toggle summary:hover{background:rgba(212,255,63,0.025)}
+  .help-icon{
+    width:24px;height:24px;
+    border-radius:7px;
+    background:rgba(212,255,63,0.12);
+    color:var(--accent);
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:14px;font-weight:600;
+    flex-shrink:0;
+  }
+  .help-label{flex:1;min-width:0}
+  .help-chevron{
+    color:var(--ink-mute);
+    font-size:14px;
+    transition:transform .3s cubic-bezier(.4,0,.2,1);
+    flex-shrink:0;
+  }
+  .help-toggle[open] .help-chevron{transform:rotate(180deg);color:var(--accent)}
+  .help-content{
+    padding:0 18px 16px;
+    border-top:1px dashed rgba(212,255,63,0.15);
+    margin-top:0;
+    padding-top:14px;
+    font-size:13px;color:var(--ink-dim);line-height:1.6;
+    animation:helpSlide .25s cubic-bezier(.4,0,.2,1);
+  }
+  @keyframes helpSlide{
+    from{opacity:0;transform:translateY(-4px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+  .help-content p{margin-bottom:10px}
+  .help-content p:last-child{margin-bottom:0}
+  .help-content strong{color:var(--ink);font-weight:600}
+  .help-block{
+    margin:10px 0 14px;
+    padding:12px 14px;
+    background:rgba(212,255,63,0.04);
+    border-radius:10px;
+    border:1px solid rgba(212,255,63,0.15);
+  }
+  .help-block strong{display:block;margin-bottom:8px;font-size:12px;text-transform:uppercase;letter-spacing:1px;font-family:'JetBrains Mono',monospace}
+  .help-table{display:flex;flex-direction:column;gap:6px}
+  .help-table > div{
+    display:flex;justify-content:space-between;gap:14px;
+    padding:5px 0;
+    font-size:12.5px;
+    border-bottom:1px dashed rgba(255,255,255,0.05);
+  }
+  .help-table > div:last-child{border-bottom:none}
+  .help-table span:first-child{color:var(--ink-dim)}
+  .help-table span:last-child{color:var(--ink);font-weight:600;font-family:'JetBrains Mono',monospace;font-size:11.5px}
+
   .routes-toolbar{
     display:flex;justify-content:space-between;align-items:center;
     flex-wrap:wrap;gap:14px;
@@ -754,6 +827,102 @@
     display:flex;gap:18px;flex-wrap:wrap;
   }
   .map-stats strong{color:var(--ink);font-weight:600}
+
+  /* SELETOR DE ROTAS no mapa */
+  .route-selector{
+    margin-bottom:14px;
+    padding:14px 16px;
+    border:1px solid var(--line);
+    border-radius:14px;
+    background:linear-gradient(135deg, rgba(212,255,63,0.03), rgba(20,22,18,0.5));
+    animation:helpSlide .25s cubic-bezier(.4,0,.2,1);
+  }
+  .route-selector-head{
+    display:flex;justify-content:space-between;align-items:center;
+    flex-wrap:wrap;gap:10px;
+    margin-bottom:12px;
+  }
+  .route-selector-title{
+    font-size:13px;font-weight:600;color:var(--ink);
+    display:flex;align-items:center;gap:8px;
+  }
+  .route-selector-title span{font-size:16px}
+  .route-selector-actions{display:flex;gap:6px;flex-wrap:wrap}
+  .route-sel-quick{
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--ink-dim);
+    padding:4px 11px;
+    border-radius:14px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:10.5px;font-weight:600;
+    cursor:pointer;text-transform:uppercase;letter-spacing:.5px;
+    transition:all .15s;
+  }
+  .route-sel-quick:hover{
+    border-color:var(--accent);
+    color:var(--accent);
+    background:rgba(212,255,63,0.05);
+  }
+
+  .route-selector-chips{
+    display:flex;flex-wrap:wrap;gap:7px;
+    max-height:180px;
+    overflow-y:auto;
+    padding:2px;
+  }
+  .route-selector-chips::-webkit-scrollbar{width:6px}
+  .route-selector-chips::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px}
+
+  .route-chip{
+    background:rgba(255,255,255,0.025);
+    border:1px solid var(--line);
+    color:var(--ink-dim);
+    padding:6px 12px 6px 9px;
+    border-radius:18px;
+    font-size:12px;
+    cursor:pointer;
+    display:inline-flex;align-items:center;gap:7px;
+    transition:all .15s;
+    font-family:inherit;
+    user-select:none;
+  }
+  .route-chip:hover{border-color:var(--ink-mute);color:var(--ink)}
+  .route-chip.on{
+    background:rgba(255,255,255,0.04);
+    color:var(--ink);
+    border-color:rgba(255,255,255,0.08);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);
+  }
+  .route-chip-dot{
+    width:11px;height:11px;
+    border-radius:50%;
+    flex-shrink:0;
+    border:2px solid #0d0e0c;
+    box-shadow:0 0 0 1px var(--line);
+    transition:all .15s;
+  }
+  .route-chip.on .route-chip-dot{
+    box-shadow:0 0 0 1.5px currentColor, 0 0 8px currentColor;
+  }
+  .route-chip-num{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10.5px;
+    color:var(--ink-mute);
+    font-weight:600;
+  }
+  .route-chip.on .route-chip-num{color:var(--ink-dim)}
+  .route-chip-meta{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+    color:var(--ink-mute);
+    margin-left:4px;
+    padding:1px 7px;
+    background:rgba(0,0,0,0.25);
+    border-radius:8px;
+  }
+  .route-chip.off{opacity:.4}
+  .route-chip.off:hover{opacity:.7}
 
   .leaflet-container-custom{
     height:560px;
@@ -1253,38 +1422,49 @@
 
       <!-- VIEW ROTAS -->
       <div class="section-body hidden" id="view-rotas">
-        <div class="insight-card">
-          <div class="insight-icon accent">⊕</div>
-          <div>
-            <div class="insight-title">Como funciona a sugestão de rotas</div>
-            <div class="insight-body">
+        <details class="help-toggle">
+          <summary>
+            <span class="help-icon">⊕</span>
+            <span class="help-label">Como funciona a sugestão de rotas</span>
+            <span class="help-chevron">▾</span>
+          </summary>
+          <div class="help-content">
+            <p>
               Agrupamos os pedidos por <strong>faixa de CEP até 35.000</strong> (toda região metropolitana de SP,
               ABC, litoral, Vale, Sorocaba, Campinas e Vale do Paraíba). A ordem de entrega é do CEP menor para o maior,
               partindo de <strong>Av. Guaraciaba, 313 · Mauá · CEP 09370-840</strong>.
-              <br><br>
-              <strong style="color:var(--accent)">Valor mínimo–máximo por veículo:</strong><br>
-              Capital/ABC/Grande SP/Guarulhos → <strong>R$ 25.000 a R$ 50.000</strong><br>
-              Interior/Litoral SP → <strong>R$ 15.000 a R$ 60.000</strong><br>
-              Outros estados → <strong>R$ 15.000 a R$ 60.000</strong>
-              <br><br>
+            </p>
+
+            <div class="help-block">
+              <strong style="color:var(--accent)">Valor mínimo–máximo por veículo</strong>
+              <div class="help-table">
+                <div><span>Capital/ABC/Grande SP/Guarulhos</span><span>R$ 25.000 a R$ 50.000</span></div>
+                <div><span>Interior/Litoral SP</span><span>R$ 15.000 a R$ 60.000</span></div>
+                <div><span>Outros estados</span><span>R$ 15.000 a R$ 60.000</span></div>
+              </div>
+            </div>
+
+            <p>
               <strong style="color:var(--accent)">Fusão automática:</strong> quando uma zona não atinge o mínimo sozinha,
               o sistema verifica zonas <strong>geograficamente vizinhas da mesma categoria</strong> (ex: São Caetano + Santo André, Mauá + Diadema)
               e funde elas em uma única rota se a soma ficar dentro da faixa. Rotas combinadas aparecem com borda verde-limão.
-              <br><br>
+            </p>
+            <p>
               <strong style="color:var(--info)">Divisão automática:</strong> quando uma rota ultrapassa o máximo da categoria,
-              o sistema <strong>fraciona em N subrotas</strong> respeitando a faixa mín–máx em cada parte, ordenadas por CEP
-              (mantém sequência geográfica do motorista). Cada parte é um veículo separado — aparecem com borda azul e badge "PARTE X/Y".
-              <br><br>
-              <strong style="color:var(--accent)">Otimização TSP:</strong> a sequência de paradas é calculada por algoritmo Nearest Neighbor + refinamento 2-opt
+              o sistema <strong>fraciona em N subrotas</strong> respeitando a faixa mín–máx em cada parte, ordenadas por CEP.
+              Cada parte é um veículo separado — borda azul e badge "PARTE X/Y".
+            </p>
+            <p>
+              <strong style="color:var(--accent)">Otimização TSP:</strong> sequência calculada por Nearest Neighbor + 2-opt
               (em vez de só CEP crescente), reduzindo a distância total em 15-30%. Rotas otimizadas mostram <span class="opt-badge" style="position:relative;top:1px"></span> ao lado do KM.
-              <br><br>
-              <strong style="color:var(--warn)">Janelas de horário:</strong> se a planilha tiver coluna "Horário Recebimento" (ex: "08:00-12:00", "Manhã", "Até 11h"), 
-              esses clientes são priorizados no início da rota e aparecem com tag colorida na parada.
-              <br>
-              KM é estimativa baseada em centróides de CEP — para precisão real use Google Maps/Waze.
-            </div>
+            </p>
+            <p>
+              <strong style="color:var(--warn)">Janelas de horário:</strong> se a planilha tiver coluna "Horário Recebimento"
+              (ex: "08:00-12:00", "Manhã", "Até 11h"), esses clientes são priorizados no início da rota.
+              <br><span style="color:var(--ink-mute);font-size:12px">KM é estimativa baseada em centróides de CEP — para precisão real use Google Maps/Waze.</span>
+            </p>
           </div>
-        </div>
+        </details>
         <div class="routes-toolbar">
           <div class="toolbar-info" id="routesGlobalInfo">Carregue uma planilha pra ver as rotas</div>
           <div class="toolbar-actions">
@@ -1322,6 +1502,21 @@
             <button class="map-toggle map-toggle-routes" data-metric="rotas">🚚 Mostrar Rotas</button>
           </div>
           <div class="map-stats" id="mapStats"></div>
+        </div>
+
+        <!-- Painel de seleção de rotas (só aparece em modo "rotas") -->
+        <div id="routeSelector" class="route-selector hidden">
+          <div class="route-selector-head">
+            <div class="route-selector-title">
+              <span>🚚</span> Selecione as rotas para visualizar no mapa
+            </div>
+            <div class="route-selector-actions">
+              <button class="route-sel-quick" data-quick="all">Mostrar todas</button>
+              <button class="route-sel-quick" data-quick="none">Esconder todas</button>
+              <button class="route-sel-quick" data-quick="invert">Inverter</button>
+            </div>
+          </div>
+          <div class="route-selector-chips" id="routeSelectorChips"></div>
         </div>
 
         <div id="leafletMap" class="leaflet-container-custom"></div>
@@ -2415,11 +2610,18 @@ document.getElementById('btnValConfirm')?.addEventListener('click', () => {
 
 // ---------- RENDER ----------
 function renderAll(){
+  // reset estado de seleção de rotas (cada nova planilha começa do zero)
+  chipsRenderizados = false;
+  rotasSelecionadas.clear();
   renderKpisGeneral();
   renderFilters();
   renderTable();
   renderRoutes();
   renderExec();
+  // se o usuário estava no mapa-rotas, re-renderiza pra atualizar
+  if (activeView === 'mapa' && activeMetric === 'rotas' && heatMap) {
+    setTimeout(() => atualizarHeat(), 100);
+  }
 }
 
 function getFiltered(){
@@ -3286,8 +3488,10 @@ function getCoordsFromCep(cep5){
 
 let heatMap = null;
 let heatLayer = null;
-let activeMetric = 'valor'; // valor | pedidos | ticket
+let activeMetric = 'valor'; // valor | pedidos | ticket | rotas
 let mapMarkers = [];
+let rotasSelecionadas = new Set(); // índices das rotas visíveis no mapa
+let chipsRenderizados = false; // cache pra não re-renderizar chips em toda chamada
 
 function renderMap(){
   const mapDiv = document.getElementById('leafletMap');
@@ -3310,6 +3514,12 @@ function renderMap(){
       b.addEventListener('click', () => {
         activeMetric = b.dataset.metric;
         document.querySelectorAll('.map-toggle').forEach(x=>x.classList.toggle('active', x===b));
+        // mostrar/esconder painel de seleção de rotas conforme métrica
+        const selector = document.getElementById('routeSelector');
+        if (selector){
+          if (activeMetric === 'rotas') selector.classList.remove('hidden');
+          else selector.classList.add('hidden');
+        }
         atualizarHeat();
       });
     });
@@ -3896,37 +4106,114 @@ function desenharRotasNoMapa(){
     renderRoutes();
   }
   const rotas = window._rotasAtuais || [];
+
+  // mostrar o painel de seleção (escondido em outros modos)
+  const selector = document.getElementById('routeSelector');
+  if (selector) selector.classList.remove('hidden');
+
   if (!rotas.length){
     document.getElementById('mapStats').innerHTML =
       `<span style="color:var(--warn)">Sem rotas para desenhar (carregue a planilha primeiro)</span>`;
     return;
   }
 
-  // paleta de cores para diferenciar rotas
-  const cores = [
-    '#d4ff3f', '#ff5b2a', '#62d4ff', '#7fe05a', '#ffb84d',
-    '#ff5066', '#c084fc', '#fbbf24', '#34d399', '#60a5fa',
-    '#f472b6', '#a78bfa', '#fb923c', '#10b981', '#06b6d4',
-  ];
+  // se primeira vez: seleciona só as 3 primeiras (evita poluir)
+  // ou se o nº de rotas mudou (nova planilha carregada), reseta seleção
+  if (!chipsRenderizados || rotasSelecionadas.size === 0){
+    rotasSelecionadas.clear();
+    const padraoMostrar = Math.min(3, rotas.length);
+    for (let i = 0; i < padraoMostrar; i++) rotasSelecionadas.add(i);
+  }
 
+  renderRouteChips(rotas);
+  desenharRotasFiltradas();
+}
+
+// === PALETA E CORES (compartilhada com chips) ===
+const CORES_ROTAS = [
+  '#d4ff3f', '#ff5b2a', '#62d4ff', '#7fe05a', '#ffb84d',
+  '#ff5066', '#c084fc', '#fbbf24', '#34d399', '#60a5fa',
+  '#f472b6', '#a78bfa', '#fb923c', '#10b981', '#06b6d4',
+];
+
+function renderRouteChips(rotas){
+  const cont = document.getElementById('routeSelectorChips');
+  if (!cont) return;
+
+  cont.innerHTML = rotas.map((r, idx) => {
+    const cor = CORES_ROTAS[idx % CORES_ROTAS.length];
+    const valor = r.pedidos.reduce((a,b)=>a+(b.valor||0), 0);
+    const nomeCurto = r.nome.length > 32 ? r.nome.substring(0,30)+'…' : r.nome;
+    const isOn = rotasSelecionadas.has(idx);
+    return `
+      <button class="route-chip ${isOn?'on':'off'}" data-route-idx="${idx}" style="color:${cor}" title="${r.pedidos.length} paradas · ${fmtBRL(valor)}">
+        <span class="route-chip-dot" style="background:${cor}"></span>
+        <span class="route-chip-num">#${idx+1}</span>
+        <span style="color:var(--ink)">${nomeCurto}</span>
+        <span class="route-chip-meta">${r.pedidos.length}p</span>
+      </button>
+    `;
+  }).join('');
+
+  // ativar handlers dos chips
+  cont.querySelectorAll('.route-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.routeIdx, 10);
+      if (rotasSelecionadas.has(idx)) rotasSelecionadas.delete(idx);
+      else rotasSelecionadas.add(idx);
+      // atualizar visual do chip sem re-renderizar tudo
+      btn.classList.toggle('on');
+      btn.classList.toggle('off');
+      desenharRotasFiltradas();
+    });
+  });
+
+  // handlers dos botões rápidos (mostrar todas / esconder / inverter)
+  document.querySelectorAll('.route-sel-quick').forEach(b => {
+    b.onclick = () => {
+      const acao = b.dataset.quick;
+      if (acao === 'all'){
+        rotas.forEach((_, i) => rotasSelecionadas.add(i));
+      } else if (acao === 'none'){
+        rotasSelecionadas.clear();
+      } else if (acao === 'invert'){
+        const tmp = new Set();
+        rotas.forEach((_, i) => { if (!rotasSelecionadas.has(i)) tmp.add(i); });
+        rotasSelecionadas = tmp;
+      }
+      // re-renderizar chips e mapa
+      renderRouteChips(rotas);
+      desenharRotasFiltradas();
+    };
+  });
+
+  chipsRenderizados = true;
+}
+
+function desenharRotasFiltradas(){
+  if (!heatMap) return;
+  // limpar layer anterior
+  if (heatLayer){ heatMap.removeLayer(heatLayer); heatLayer=null; }
+  mapMarkers.forEach(m => heatMap.removeLayer(m));
+  mapMarkers = [];
+
+  const rotas = window._rotasAtuais || [];
   const BASE_COORD = [-23.6680, -46.4615];
-  let totalParadas = 0, totalKm = 0;
-  const todasCoords = []; // pra calcular bounds
+  let totalParadas = 0, totalKm = 0, rotasMostradas = 0;
+  const todasCoords = [];
 
   rotas.forEach((rota, idx) => {
-    const cor = cores[idx % cores.length];
-    const pontos = []; // sequência de coords [lat,lng]
-    pontos.push(BASE_COORD); // sai da base
+    if (!rotasSelecionadas.has(idx)) return; // só desenha as selecionadas
+    rotasMostradas++;
+    const cor = CORES_ROTAS[idx % CORES_ROTAS.length];
+    const pontos = [];
+    pontos.push(BASE_COORD);
 
-    // ordem otimizada (já está no array)
     const peds = rota.pedidos;
-
-    // converter cada parada em coord (usa CEP_GEO; pedidos no mesmo CEP ganham jitter pequeno)
     const usadas = new Set();
     peds.forEach(p => {
       const c = getCoordsFromCep(p.cep5);
       if (!c) return;
-      // jitter pra não sobrepor markers exatamente
       const key = `${c.lat.toFixed(4)},${c.lng.toFixed(4)}`;
       const offset = usadas.has(key) ? (Math.random()-0.5) * 0.005 : 0;
       const lat = c.lat + offset;
@@ -3935,8 +4222,7 @@ function desenharRotasNoMapa(){
       pontos.push([lat, lng]);
       todasCoords.push([lat, lng]);
 
-      // marker numerado da parada
-      const ordem = pontos.length - 1; // 1, 2, 3...
+      const ordem = pontos.length - 1;
       const html = `<div class="route-stop-marker" style="background:${cor};">${ordem}</div>`;
       const icon = L.divIcon({
         html, className: 'route-stop-icon',
@@ -3955,10 +4241,9 @@ function desenharRotasNoMapa(){
       mapMarkers.push(m);
     });
 
-    pontos.push(BASE_COORD); // volta pra base
+    pontos.push(BASE_COORD);
 
     if (pontos.length > 2){
-      // desenhar polyline
       const linha = L.polyline(pontos, {
         color: cor,
         weight: 3,
@@ -3968,7 +4253,6 @@ function desenharRotasNoMapa(){
       }).addTo(heatMap);
       mapMarkers.push(linha);
 
-      // calcular km aproximado (Haversine)
       let kmRota = 0;
       for (let i = 0; i < pontos.length-1; i++){
         kmRota += haversine(pontos[i][0], pontos[i][1], pontos[i+1][0], pontos[i+1][1]);
@@ -3976,7 +4260,6 @@ function desenharRotasNoMapa(){
       totalKm += kmRota;
       totalParadas += peds.length;
 
-      // popup central na linha (clica e vê o resumo)
       linha.bindPopup(`
         <b style="color:${cor}">Rota #${idx+1}</b>
         <div style="font-size:11.5px;color:#999;margin-top:2px">${rota.nome}</div>
@@ -3997,7 +4280,7 @@ function desenharRotasNoMapa(){
   const baseM = L.marker(BASE_COORD, {icon: baseIcon, zIndexOffset: 1000}).addTo(heatMap);
   mapMarkers.push(baseM);
 
-  // ajustar zoom pra mostrar tudo
+  // ajustar zoom só se tiver paradas
   if (todasCoords.length > 0){
     try {
       const bounds = L.latLngBounds([BASE_COORD, ...todasCoords]);
@@ -4006,10 +4289,16 @@ function desenharRotasNoMapa(){
   }
 
   // stats
-  document.getElementById('mapStats').innerHTML =
-    `<span><strong>${rotas.length}</strong> rotas desenhadas</span>
-     <span><strong>${totalParadas}</strong> paradas · <strong>${totalKm.toFixed(0)} km</strong> total</span>
-     <span>Clique em uma linha para detalhes</span>`;
+  const total = rotas.length;
+  if (rotasMostradas === 0){
+    document.getElementById('mapStats').innerHTML =
+      `<span style="color:var(--warn)">Nenhuma rota selecionada — escolha acima quais visualizar</span>`;
+  } else {
+    document.getElementById('mapStats').innerHTML =
+      `<span><strong>${rotasMostradas}</strong> de ${total} rotas no mapa</span>
+       <span><strong>${totalParadas}</strong> paradas · <strong>${totalKm.toFixed(0)} km</strong></span>
+       <span>Clique numa linha para detalhes</span>`;
+  }
 }
 
 function drawCharts(base){
