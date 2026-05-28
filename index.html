@@ -81,27 +81,155 @@
   }
   .hero-sub{color:var(--ink-dim);font-size:15px;max-width:680px;line-height:1.5}
 
-  /* UPLOAD ZONE */
+  /* UPLOAD ZONE — compacta + animada */
   .upload-zone{
-    margin-top:24px;
+    position:relative;
+    margin-top:20px;
     border:2px dashed var(--line);
-    border-radius:18px;padding:28px;text-align:center;
-    transition:all .25s ease;cursor:pointer;
+    border-radius:14px;
+    padding:14px 22px;
+    cursor:pointer;
     background:rgba(255,255,255,0.015);
+    overflow:hidden;
+    transition:all .3s cubic-bezier(.4,0,.2,1);
+    display:flex;align-items:center;gap:18px;
   }
-  .upload-zone:hover, .upload-zone.drag{
+  .upload-zone:hover{
     border-color:var(--accent);
     background:rgba(212,255,63,0.04);
+    transform:translateY(-2px);
+    box-shadow:0 8px 28px rgba(212,255,63,0.08);
   }
-  .upload-zone.has-file{border-style:solid;border-color:var(--ok)}
-  .upload-icon{font-size:32px;margin-bottom:8px}
-  .upload-zone h3{font-size:18px;font-weight:600;margin-bottom:4px}
-  .upload-zone p{font-size:13px;color:var(--ink-dim)}
+  .upload-zone:hover .upload-icon-wrap{
+    transform:translateY(-3px) rotate(-6deg);
+    color:var(--accent);
+  }
+  .upload-zone:hover .upload-icon-wrap::after{
+    transform:scaleX(1);
+  }
+  .upload-zone.drag{
+    border-color:var(--accent);
+    border-style:solid;
+    background:rgba(212,255,63,0.08);
+    transform:scale(1.01);
+    box-shadow:0 0 0 6px rgba(212,255,63,0.15), 0 10px 30px rgba(212,255,63,0.15);
+  }
+  .upload-zone.drag .upload-icon-wrap{
+    color:var(--accent);
+    animation:uploadBounce .8s cubic-bezier(.4,0,.2,1) infinite;
+  }
+  .upload-zone.has-file{
+    border-style:solid;
+    border-color:var(--ok);
+    background:rgba(127,224,90,0.03);
+  }
+  .upload-zone.has-file .upload-icon-wrap{
+    color:var(--ok);
+  }
+
+  /* fundo animado — barras sutis que se movem */
+  .upload-bg-anim{
+    position:absolute;inset:0;
+    pointer-events:none;
+    opacity:0;
+    transition:opacity .4s ease;
+    overflow:hidden;
+  }
+  .upload-zone:hover .upload-bg-anim,
+  .upload-zone.drag .upload-bg-anim{opacity:.55}
+  .upload-bg-anim span{
+    position:absolute;
+    height:1.5px;
+    background:linear-gradient(90deg, transparent, var(--accent), transparent);
+    width:80px;
+    animation:bgSlide 3s linear infinite;
+  }
+  .upload-bg-anim span:nth-child(1){top:18%;left:-80px;animation-delay:0s;animation-duration:2.8s}
+  .upload-bg-anim span:nth-child(2){top:38%;left:-80px;animation-delay:.6s;animation-duration:3.4s}
+  .upload-bg-anim span:nth-child(3){top:58%;left:-80px;animation-delay:1.2s;animation-duration:2.6s}
+  .upload-bg-anim span:nth-child(4){top:78%;left:-80px;animation-delay:1.8s;animation-duration:3.2s}
+  .upload-bg-anim span:nth-child(5){top:28%;left:-80px;animation-delay:.3s;animation-duration:3.8s}
+  .upload-bg-anim span:nth-child(6){top:68%;left:-80px;animation-delay:.9s;animation-duration:2.4s}
+  @keyframes bgSlide{
+    0%{transform:translateX(0)}
+    100%{transform:translateX(calc(100vw + 80px))}
+  }
+
+  /* ícone com seta + linha animada embaixo */
+  .upload-icon-wrap{
+    position:relative;z-index:1;
+    color:var(--ink-dim);
+    flex-shrink:0;
+    transition:all .35s cubic-bezier(.4,0,.2,1);
+    display:flex;align-items:center;justify-content:center;
+    width:44px;height:44px;
+    border-radius:12px;
+    background:rgba(255,255,255,0.03);
+    border:1px solid var(--line);
+  }
+  .upload-icon-wrap svg{width:22px;height:22px}
+  .upload-icon-wrap::after{
+    content:'';
+    position:absolute;
+    left:8px;right:8px;bottom:6px;
+    height:2px;
+    background:var(--accent);
+    border-radius:2px;
+    transform:scaleX(0);
+    transform-origin:left;
+    transition:transform .35s cubic-bezier(.4,0,.2,1);
+  }
+  @keyframes uploadBounce{
+    0%,100%{transform:translateY(0) rotate(0)}
+    50%{transform:translateY(-6px) rotate(-8deg)}
+  }
+
+  .upload-text{position:relative;z-index:1;flex:1;min-width:0}
+  .upload-zone h3{
+    font-size:15px;
+    font-weight:600;
+    color:var(--ink);
+    line-height:1.3;
+    letter-spacing:-0.2px;
+  }
+  .upload-sep{
+    color:var(--ink-mute);
+    font-weight:400;
+    margin:0 4px;
+  }
+  .upload-zone p{
+    font-size:11.5px;
+    color:var(--ink-mute);
+    margin-top:2px;
+    font-family:'JetBrains Mono',monospace;
+    letter-spacing:.5px;
+  }
   .upload-zone .file-info{
-    font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ok);
-    margin-top:8px;
+    position:relative;z-index:1;
+    font-family:'JetBrains Mono',monospace;
+    font-size:11.5px;
+    color:var(--ok);
+    flex-shrink:0;
+    padding:6px 12px;
+    background:rgba(127,224,90,0.08);
+    border-radius:8px;
+    border:1px solid rgba(127,224,90,0.2);
+    display:none;
   }
+  .upload-zone.has-file .file-info,
+  .file-info:not(:empty){display:inline-block}
   #fileInput{display:none}
+
+  @media(max-width:560px){
+    .upload-zone{
+      flex-direction:column;
+      text-align:center;
+      gap:10px;
+      padding:18px;
+    }
+    .upload-text{text-align:center}
+    .upload-zone h3{font-size:14px}
+  }
 
   /* SECTIONS */
   .section{
@@ -1032,7 +1160,7 @@
       <img id="brandLogo" class="brand-logo" alt="logo" />
       <div class="brand-mark" id="brandMark">rota<span>·</span>central</div>
       <div class="brand-tag">v2.1 · SUPER ABC</div>
-      <button class="settings-btn" id="btnSettings" title="Configurações da empresa">⚙ Configurações</button>
+      <button class="settings-btn hidden" id="btnSettings" title="Configurações da empresa">⚙ Configurações</button>
     </div>
     <div class="hero-sub" id="heroSub">
       Sistema de roteirização inteligente por CEP. Carregue sua planilha, filtre por status,
@@ -1040,9 +1168,20 @@
     </div>
 
     <label for="fileInput" class="upload-zone" id="uploadZone">
-      <div class="upload-icon">⬆</div>
-      <h3>Solte a planilha aqui ou clique para enviar</h3>
-      <p>Aceita arquivos .xlsx ou .xls — o cabeçalho deve estar nas duas primeiras linhas como no modelo</p>
+      <div class="upload-bg-anim">
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <div class="upload-icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </div>
+      <div class="upload-text">
+        <h3>Solte a planilha aqui <span class="upload-sep">ou</span> clique para enviar</h3>
+        <p>Aceita .xlsx · .xls</p>
+      </div>
       <div class="file-info" id="fileInfo"></div>
     </label>
     <input type="file" id="fileInput" accept=".xlsx,.xls" />
