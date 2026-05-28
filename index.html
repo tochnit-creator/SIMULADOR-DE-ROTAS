@@ -14,6 +14,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.0/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <style>
   :root{
     --bg:#0d0e0c;
@@ -3691,13 +3692,12 @@ function gerarPDFRomaneio(rotas){
 function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
   const PW = doc.internal.pageSize.getWidth();
   const PH = doc.internal.pageSize.getHeight();
-  const M = 12; // margem lateral
+  const M = 14; // margem lateral mais generosa
 
-  // IMPORTANTE: usa pedidos JÁ otimizados (na ordem do array — preserva sequência TSP)
-  // só ordena por CEP se a rota não veio otimizada
+  // pedidos: usa ordem otimizada se houver
   let peds;
   if (rota.foiOtimizada){
-    peds = [...rota.pedidos]; // já está em ordem otimizada
+    peds = [...rota.pedidos];
   } else {
     peds = [...rota.pedidos].sort((a,b)=>(a.cep5||0)-(b.cep5||0));
   }
@@ -3706,210 +3706,354 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
   const minimoZona = getMinimo(rota.tipo);
   const maximoZona = getMaximo(rota.tipo);
 
+  // status
   let status = 'VIÁVEL';
-  let statusColor = [34,139,34];
-  if (totV < minimoZona){ status = 'INVIÁVEL'; statusColor = [220,38,38]; }
-  else if (totV > maximoZona){ status = 'SUPERLOTADA'; statusColor = [234,88,12]; }
-  else if (rota.dividida){ status = `DIVIDIDA · ${rota.parteAtual}/${rota.totalPartes}`; statusColor = [37,99,235]; }
-  else if (rota.combinada){ status = 'COMBINADA'; statusColor = [101,163,13]; }
+  let statusColor = [22, 101, 52]; // verde escuro
+  if (totV < minimoZona){ status = 'INVIÁVEL'; statusColor = [185, 28, 28]; }
+  else if (totV > maximoZona){ status = 'SUPERLOTADA'; statusColor = [194, 65, 12]; }
+  else if (rota.dividida){ status = `PARTE ${rota.parteAtual}/${rota.totalPartes}`; statusColor = [29, 78, 216]; }
+  else if (rota.combinada){ status = 'COMBINADA'; statusColor = [21, 128, 61]; }
 
-  // converter cor da empresa hex pra RGB
+  // cor da empresa (RGB)
   const corHex = (APP_CONFIG.cor || '#d4ff3f').replace('#','');
   const corR = parseInt(corHex.substring(0,2),16);
   const corG = parseInt(corHex.substring(2,4),16);
   const corB = parseInt(corHex.substring(4,6),16);
+  // cor mais escura pra texto sobre fundo claro (sóbrio)
+  const corEscR = Math.max(0, Math.round(corR * 0.45));
+  const corEscG = Math.max(0, Math.round(corG * 0.45));
+  const corEscB = Math.max(0, Math.round(corB * 0.45));
 
-  // ===== CABEÇALHO =====
-  doc.setFillColor(13,14,12);
-  doc.rect(0, 0, PW, 32, 'F');
-  // listra com cor da empresa
+  // PALETA SÓBRIA
+  const COR_INK = [17, 24, 39];      // preto suave
+  const COR_INK_DIM = [75, 85, 99];  // cinza médio
+  const COR_INK_MUTE = [156, 163, 175]; // cinza claro
+  const COR_LINE = [229, 231, 235];  // cinza linha
+  const COR_BG_SOFT = [249, 250, 251]; // cinza fundo
+
+  // ============= CABEÇALHO =============
+  // faixa lateral colorida (10mm fina à esquerda, identidade visual)
   doc.setFillColor(corR, corG, corB);
-  doc.rect(0, 32, PW, 1.5, 'F');
+  doc.rect(0, 0, 6, PH, 'F');
 
-  // LOGO (se houver)
-  let logoEndX = M;
+  // logo (se houver)
+  let textX = M;
   if (APP_CONFIG.logo){
     try {
-      // detectar tipo da imagem
       const imgType = APP_CONFIG.logo.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-      doc.addImage(APP_CONFIG.logo, imgType, M, 6, 18, 18, undefined, 'FAST');
-      logoEndX = M + 22;
-    } catch(e){ console.warn('Falha ao adicionar logo:', e); }
+      doc.addImage(APP_CONFIG.logo, imgType, M, M, 22, 22, undefined, 'FAST');
+      textX = M + 28;
+    } catch(e){ console.warn('Falha logo:', e); }
   }
 
-  // nome da empresa
-  doc.setTextColor(corR, corG, corB);
+  // Nome da empresa (preto, peso bold, tracking sóbrio)
+  doc.setTextColor(...COR_INK);
   doc.setFont('helvetica','bold');
-  doc.setFontSize(15);
-  const nomeEmpresa = APP_CONFIG.nome || 'ROTA·CENTRAL';
-  doc.text(nomeEmpresa, logoEndX, 13);
+  doc.setFontSize(16);
+  const nomeEmpresa = (APP_CONFIG.nome || 'SUPER ABC').toUpperCase();
+  doc.text(nomeEmpresa, textX, M + 8);
 
-  doc.setTextColor(180,180,170);
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(8);
-  doc.text('ROMANEIO DE ENTREGA', logoEndX, 19);
-  // CNPJ + fone se preenchidos
-  if (APP_CONFIG.cnpj || APP_CONFIG.fone){
-    const subtext = [APP_CONFIG.cnpj ? `CNPJ ${APP_CONFIG.cnpj}` : '', APP_CONFIG.fone || ''].filter(Boolean).join(' · ');
-    doc.setFontSize(7.5);
-    doc.text(subtext, logoEndX, 24);
-  }
-
-  // info do lado direito
-  doc.setTextColor(220,220,210);
-  doc.setFontSize(8);
-  doc.text(`Emissão: ${now.data} ${now.hora}`, PW - M, 11, {align:'right'});
-  doc.text(`Página ${pageNum} de ${totalPages}`, PW - M, 16, {align:'right'});
-  doc.text(`Base: ${APP_CONFIG.endereco || 'Av. Guaraciaba 313, Mauá-SP'}`, PW - M, 21, {align:'right'});
-  if (rota.foiOtimizada){
-    doc.setTextColor(corR, corG, corB);
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(7.5);
-    doc.text('● SEQUÊNCIA OTIMIZADA', PW - M, 26, {align:'right'});
-  }
-
-  // ===== TÍTULO DA ROTA =====
-  let y = 42;
-  doc.setTextColor(20,20,20);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(14);
-  doc.text(`Rota: ${rota.nome}`, M, y);
-  y += 5;
-  // se combinada, mostra subzonas
-  if (rota.combinada){
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(9);
-    doc.setTextColor(100,100,100);
-    const subzonas = rota.zonasOrigem.map(z => z.split('·')[1] ? z.split('·')[1].trim() : z).join(' + ');
-    doc.text(`Fusão automática de zonas vizinhas: ${subzonas}`, M, y);
-    y += 5;
-  }
-  // cidades
-  const cidades = [...new Set(peds.map(p=>p.cidade).filter(Boolean))];
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(9);
-  doc.setTextColor(80,80,80);
-  doc.text(`Cidades: ${cidades.slice(0,8).join(' · ')}${cidades.length>8?` (+${cidades.length-8})`:''}`, M, y);
-  y += 8;
-
-  // ===== BADGE DE STATUS =====
-  doc.setFillColor(...statusColor);
-  doc.roundedRect(M, y, 48, 7, 1.5, 1.5, 'F');
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(9);
-  doc.text(status, M+24, y+5, {align:'center'});
-
-  // info da categoria à direita do badge
-  doc.setTextColor(60,60,60);
+  // Subtítulo cinza
+  doc.setTextColor(...COR_INK_DIM);
   doc.setFont('helvetica','normal');
   doc.setFontSize(8.5);
-  const labelCat = MINIMOS_LABEL[rota.tipo] || rota.tipo;
-  doc.text(`${labelCat}  ·  Faixa: ${fmtBRL(minimoZona)} a ${fmtBRL(maximoZona)}`, M+52, y+5);
-  y += 12;
+  doc.text('ROMANEIO DE ENTREGA', textX, M + 13);
 
-  // ===== KPIs (4 caixas) =====
-  const kpiH = 18;
-  const kpiW = (PW - 2*M - 9) / 4;
-  const kpiGap = 3;
+  // CNPJ + telefone (se houver) — discreto
+  if (APP_CONFIG.cnpj || APP_CONFIG.fone){
+    doc.setTextColor(...COR_INK_MUTE);
+    doc.setFontSize(7.5);
+    const subtext = [APP_CONFIG.cnpj ? `CNPJ ${APP_CONFIG.cnpj}` : '', APP_CONFIG.fone || ''].filter(Boolean).join('  ·  ');
+    doc.text(subtext, textX, M + 18);
+  }
+  // endereço da base (mais discreto)
+  doc.setTextColor(...COR_INK_MUTE);
+  doc.setFontSize(7);
+  const enderecoBase = APP_CONFIG.endereco || 'Av. Guaraciaba 313, Mauá-SP';
+  doc.text(`BASE: ${enderecoBase}`, textX, M + 23);
+
+  // bloco de info do lado direito (data, página, número rota)
+  const rightX = PW - M;
+  doc.setTextColor(...COR_INK_DIM);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8);
+  doc.text('EMISSÃO', rightX, M + 3, {align:'right'});
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(10);
+  doc.setTextColor(...COR_INK);
+  doc.text(`${now.data}  ${now.hora}`, rightX, M + 8, {align:'right'});
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8);
+  doc.setTextColor(...COR_INK_DIM);
+  doc.text('PÁGINA', rightX, M + 14, {align:'right'});
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(10);
+  doc.setTextColor(...COR_INK);
+  doc.text(`${pageNum} / ${totalPages}`, rightX, M + 19, {align:'right'});
+
+  // linha divisória fina
+  doc.setDrawColor(...COR_LINE);
+  doc.setLineWidth(0.3);
+  doc.line(M, M + 26, PW - M, M + 26);
+
+  // ============= TÍTULO DA ROTA (corpo) =============
+  let y = M + 34;
+
+  // Pequeno label "ROTA"
+  doc.setTextColor(corEscR, corEscG, corEscB);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8);
+  doc.text('ROTA', M, y);
+
+  // Nome da rota grande
+  y += 6;
+  doc.setTextColor(...COR_INK);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(18);
+  const nomeRota = rota.nome.length > 60 ? rota.nome.substring(0,58)+'…' : rota.nome;
+  doc.text(nomeRota, M, y);
+
+  // se combinada, mostra subzonas em itálico
+  y += 6;
+  if (rota.combinada){
+    doc.setTextColor(...COR_INK_DIM);
+    doc.setFont('helvetica','italic');
+    doc.setFontSize(8.5);
+    const subzonas = rota.zonasOrigem.map(z => z.split('·')[1] ? z.split('·')[1].trim() : z).join('  +  ');
+    doc.text(`Fusão de zonas vizinhas: ${subzonas}`, M, y);
+    y += 4;
+  }
+
+  // cidades
+  const cidades = [...new Set(peds.map(p=>p.cidade).filter(Boolean))];
+  doc.setTextColor(...COR_INK_DIM);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+  doc.text(cidades.slice(0,10).join('  ·  ') + (cidades.length>10?`  +${cidades.length-10}`:''), M, y);
+  y += 6;
+
+  // ============= BADGE STATUS + INDICADORES =============
+  // badge de status
+  const badgeW = 38, badgeH = 8;
+  doc.setFillColor(...statusColor);
+  doc.roundedRect(M, y, badgeW, badgeH, 1.5, 1.5, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8.5);
+  doc.text(status, M + badgeW/2, y + 5.5, {align:'center'});
+
+  // info adicional ao lado do badge
+  doc.setTextColor(...COR_INK_DIM);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8);
+  const labelCat = MINIMOS_LABEL[rota.tipo] || rota.tipo;
+  const infoFaixa = `${labelCat}   ·   Faixa ideal: ${fmtBRL(minimoZona)} – ${fmtBRL(maximoZona)}`;
+  doc.text(infoFaixa, M + badgeW + 5, y + 5.5);
+
+  // se otimizada, mostra do lado direito
+  if (rota.foiOtimizada){
+    doc.setFillColor(corR, corG, corB);
+    doc.circle(PW - M - 32, y + 4, 1.3, 'F');
+    doc.setTextColor(corEscR, corEscG, corEscB);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(7.5);
+    doc.text('SEQUÊNCIA OTIMIZADA', PW - M - 28, y + 5.5);
+  }
+  y += badgeH + 8;
+
+  // ============= 4 KPI BOXES SÓBRIOS =============
+  const kpiH = 22;
+  const kpiGap = 4;
+  const kpiW = (PW - 2*M - 3*kpiGap) / 4;
+  const kmTotal = rota.foiOtimizada && rota.kmOtimizado > 0
+    ? rota.kmOtimizado
+    : (rota.km*2 + Math.max(0, peds.length-1)*1.2 + (rota.combinada?(rota.zonasOrigem.length-1)*5:0));
+
   const kpis = [
-    { label:'PARADAS',   val: String(peds.length) },
-    { label:'VALOR',     val: fmtBRL(totV) },
-    { label:'ITENS',     val: fmtInt(totI) },
-    { label:'KM EST.',   val: Math.round(rota.km*2 + Math.max(0, peds.length-1)*1.2 + (rota.combinada?(rota.zonasOrigem.length-1)*5:0)) + ' km' },
+    { label: 'PARADAS',   val: String(peds.length), sub: cidades.length + ' cidades' },
+    { label: 'VALOR TOTAL', val: fmtBRL(totV), sub: `R$/parada ${fmtBRL(totV/peds.length)}` },
+    { label: 'ITENS',     val: fmtInt(totI), sub: 'volumes a entregar' },
+    { label: 'DISTÂNCIA', val: Math.round(kmTotal) + ' km', sub: rota.foiOtimizada ? 'otimizada' : 'estimada' },
   ];
   kpis.forEach((k, i) => {
     const x = M + i*(kpiW + kpiGap);
-    doc.setFillColor(245,245,242);
-    doc.setDrawColor(220,220,215);
+    // fundo branco com borda fina
+    doc.setFillColor(255,255,255);
+    doc.setDrawColor(...COR_LINE);
+    doc.setLineWidth(0.3);
     doc.roundedRect(x, y, kpiW, kpiH, 1.5, 1.5, 'FD');
-    doc.setTextColor(120,120,115);
-    doc.setFont('helvetica','normal');
+
+    // label uppercase pequeno
+    doc.setTextColor(...COR_INK_MUTE);
+    doc.setFont('helvetica','bold');
     doc.setFontSize(7);
-    doc.text(k.label, x + 3, y + 5);
-    doc.setTextColor(20,20,20);
+    doc.text(k.label, x + 4, y + 5);
+
+    // valor grande preto
+    doc.setTextColor(...COR_INK);
     doc.setFont('helvetica','bold');
     doc.setFontSize(13);
-    doc.text(String(k.val), x + 3, y + 14);
-  });
-  y += kpiH + 8;
+    doc.text(String(k.val), x + 4, y + 13);
 
-  // ===== TABELA DE PARADAS =====
+    // sublabel cinza
+    doc.setTextColor(...COR_INK_MUTE);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7);
+    doc.text(k.sub, x + 4, y + 18);
+
+    // faixinha de cor da empresa no topo do kpi
+    doc.setFillColor(corR, corG, corB);
+    doc.rect(x, y, kpiW, 0.8, 'F');
+  });
+  y += kpiH + 6;
+
+  // ============= TABELA DE PARADAS =============
+  // Cabeçalho "PARADAS · X CLIENTES"
+  doc.setTextColor(...COR_INK);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(9);
+  doc.text(`PARADAS  ·  ${peds.length} clientes`, M, y);
+  doc.setTextColor(...COR_INK_MUTE);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7.5);
+  doc.text(rota.foiOtimizada ? 'ordem de entrega otimizada' : 'ordem do CEP menor para o maior', PW - M, y, {align:'right'});
+  y += 3;
+
+  // tabela com colunas: # · Pedido · CEP · QR · Cliente · Cidade · Janela · Valor · Recebido
   const tabelaDados = peds.map((p, i) => ([
     String(i+1).padStart(2,'0'),
     p.pedido || '',
     p.cepFmt || '',
-    truncarTexto(p.cliente || '(sem cliente)', 36),
-    truncarTexto(p.cidade || '', 16),
+    '', // QR placeholder
+    truncarTexto(p.cliente || '(sem cliente)', 34),
+    truncarTexto(p.cidade || '', 14),
     p.horario && p.horario.restrito ? p.horario.label : '',
     p.valor ? fmtBRL(p.valor) : '—',
-    p.itens ? fmtInt(p.itens) : '',
     '', // assinatura
   ]));
 
   doc.autoTable({
     startY: y,
-    head: [['#', 'Pedido', 'CEP', 'Cliente', 'Cidade', 'Janela', 'Valor', 'Itens', 'Recebido']],
+    head: [['#', 'Pedido', 'CEP', 'QR', 'Cliente', 'Cidade', 'Janela', 'Valor', 'Recebido']],
     body: tabelaDados,
     margin: { left: M, right: M },
     styles: {
       font: 'helvetica',
-      fontSize: 7.5,
-      cellPadding: 1.8,
-      lineColor: [220,220,215],
-      lineWidth: 0.1,
-      textColor: [30,30,30],
+      fontSize: 8,
+      cellPadding: 2.2,
+      lineColor: COR_LINE,
+      lineWidth: 0.15,
+      textColor: COR_INK,
+      valign: 'middle',
+      minCellHeight: 14, // alto o suficiente pro QR
     },
     headStyles: {
-      fillColor: [25,28,22],
-      textColor: [corR, corG, corB],
+      fillColor: COR_INK, // cabeçalho preto sóbrio
+      textColor: [255,255,255],
       fontStyle: 'bold',
       fontSize: 7.5,
-      cellPadding: 2.5,
+      cellPadding: 3,
+      valign: 'middle',
     },
     columnStyles: {
-      0: { cellWidth: 7,  halign:'center', fontStyle:'bold', textColor:[120,120,115] },
-      1: { cellWidth: 18, fontSize: 7 },
-      2: { cellWidth: 17 },
-      3: { cellWidth: 'auto' },
-      4: { cellWidth: 22 },
-      5: { cellWidth: 20, fontSize: 6.8, fontStyle:'bold', textColor:[180,100,0] },
-      6: { cellWidth: 20, halign:'right', fontStyle:'bold' },
-      7: { cellWidth: 11, halign:'right' },
+      0: { cellWidth: 8,  halign:'center', fontStyle:'bold', textColor: COR_INK_MUTE },
+      1: { cellWidth: 18, fontSize: 7.5, fontStyle:'bold' },
+      2: { cellWidth: 18, fontSize: 7.5 },
+      3: { cellWidth: 14, halign:'center' }, // QR
+      4: { cellWidth: 'auto', fontStyle:'bold' },
+      5: { cellWidth: 22, textColor: COR_INK_DIM, fontSize: 7.5 },
+      6: { cellWidth: 18, fontSize: 7, fontStyle:'bold', textColor:[194, 65, 12] },
+      7: { cellWidth: 22, halign:'right', fontStyle:'bold' },
       8: { cellWidth: 22, fillColor:[252,252,250] },
     },
-    alternateRowStyles: { fillColor: [248,248,245] },
+    alternateRowStyles: { fillColor: [250, 250, 250] },
     didParseCell: (data) => {
-      // destaca linhas com janela manhã em cor de fundo amarelo claro
-      if (data.section === 'body' && data.column.index === 5 && data.cell.raw){
+      // destacar janelas críticas (manhã/até) com fundo leve
+      if (data.section === 'body' && data.column.index === 6 && data.cell.raw){
         const v = String(data.cell.raw).toLowerCase();
         if (v.includes('manh') || v.includes('até')){
-          // destacar a linha toda
           data.row.cells.forEach(c => {
-            if (!c.styles.fillColor || c.styles.fillColor[0] === 248) c.styles.fillColor = [255,247,225];
+            if (!c.styles.fillColor || c.styles.fillColor[0] >= 248){
+              c.styles.fillColor = [255, 247, 235];
+            }
           });
         }
       }
     },
+    didDrawCell: (data) => {
+      // desenhar QR code na coluna 3
+      if (data.section === 'body' && data.column.index === 3){
+        const ped = peds[data.row.index];
+        if (ped && ped.cliente){
+          try {
+            // gerar URL do Google Maps com o endereço
+            const queryParts = [ped.cliente, ped.cidade].filter(Boolean).join(', ');
+            const cepLimpo = (ped.cep || '').toString().replace(/\D/g,'');
+            const cepPart = cepLimpo ? `, ${cepLimpo}` : '';
+            const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryParts + cepPart)}`;
+
+            // gerar QR usando qrcode-generator
+            if (typeof qrcode !== 'undefined'){
+              const qr = qrcode(0, 'M');
+              qr.addData(url);
+              qr.make();
+              const dataUrl = qr.createDataURL(4, 0);
+              // Centralizar QR na célula
+              const qrSize = Math.min(data.cell.height - 2, data.cell.width - 2, 12);
+              const cx = data.cell.x + (data.cell.width - qrSize) / 2;
+              const cy = data.cell.y + (data.cell.height - qrSize) / 2;
+              doc.addImage(dataUrl, 'PNG', cx, cy, qrSize, qrSize);
+            }
+          } catch(e){ /* falha silenciosa */ }
+        }
+      }
+    },
     didDrawPage: (data) => {
-      // rodapé
-      const footY = PH - 12;
-      doc.setDrawColor(220,220,215);
+      // ============= RODAPÉ =============
+      const footY = PH - 18;
+
+      // linha divisória
+      doc.setDrawColor(...COR_LINE);
       doc.setLineWidth(0.3);
-      doc.line(M, footY - 4, PW - M, footY - 4);
+      doc.line(M, footY, PW - M, footY);
 
+      // totalizador esquerda
+      doc.setTextColor(...COR_INK_MUTE);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(7);
+      doc.text('TOTAL DA ROTA', M, footY + 4);
+      doc.setTextColor(...COR_INK);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(10);
+      doc.text(`${peds.length} paradas  ·  ${fmtBRL(totV)}  ·  ${fmtInt(totI)} itens`, M, footY + 9.5);
+
+      // assinatura direita
+      doc.setTextColor(...COR_INK_MUTE);
       doc.setFont('helvetica','normal');
-      doc.setFontSize(7.5);
-      doc.setTextColor(120,120,115);
-      doc.text(`TOTAL: ${peds.length} paradas · ${fmtBRL(totV)} · ${fmtInt(totI)} itens`, M, footY);
-      doc.text('Motorista: ____________________________   Assinatura: ____________________________', PW - M, footY, {align:'right'});
+      doc.setFontSize(7);
+      doc.text('Motorista', PW - M - 70, footY + 4);
+      doc.setDrawColor(...COR_INK_DIM);
+      doc.setLineWidth(0.3);
+      doc.line(PW - M - 70, footY + 8, PW - M - 38, footY + 8);
 
+      doc.text('Assinatura', PW - M - 35, footY + 4);
+      doc.line(PW - M - 35, footY + 8, PW - M, footY + 8);
+
+      // marca d'água do gerador (super discreta)
+      doc.setTextColor(180,180,180);
+      doc.setFont('helvetica','italic');
+      doc.setFontSize(6);
+      doc.text(`Gerado por ${APP_CONFIG.nome || 'SUPER ABC'} · ROTA·CENTRAL em ${now.data} ${now.hora}`, PW/2, PH - 6, {align:'center'});
+
+      // QR escaneie indicação
+      doc.setTextColor(...COR_INK_MUTE);
       doc.setFontSize(6.5);
-      doc.setTextColor(160,160,155);
-      doc.text(`Gerado automaticamente por ROTA·CENTRAL em ${now.data} ${now.hora}`, PW/2, PH - 5, {align:'center'});
+      doc.text('★ Escaneie o QR de cada parada para abrir o endereço no Google Maps/Waze', M, PH - 6);
     },
   });
 }
+
 
 function truncarTexto(s, max){
   if (!s) return '';
