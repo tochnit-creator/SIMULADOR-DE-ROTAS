@@ -4414,7 +4414,7 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
     }
     const obs = p.enderecoExtraido || p.obsLimpa || '';
     const obsTruncada = obs ? (obs.length > 90 ? obs.substring(0,88)+'…' : obs) : '';
-    const prefixoObs = p.temObsEndereco ? '📍 ' : (obsTruncada ? '💬 ' : '');
+    const prefixoObs = p.temObsEndereco ? '>> ENTREGAR EM: ' : (obsTruncada ? 'OBS: ' : '');
     let clienteCompleto = nomeCliente;
     if (obsTruncada) clienteCompleto += '\n' + prefixoObs + obsTruncada;
     const colPedido = p.ehAgrupada
@@ -4473,45 +4473,35 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
       8: { cellWidth: 26, fillColor:[253,253,250] },
     },
     didParseCell: (data) => {
-      // destacar manhã/até com fundo leve
-      if (data.section === 'body' && data.column.index === 6 && data.cell.raw){
-        const v = String(data.cell.raw).toLowerCase();
-        if (v.includes('manh') || v.includes('até')){
-          data.row.cells.forEach(c => {
-            if (!c.styles.fillColor || (c.styles.fillColor[0] === 253 && c.styles.fillColor[2] === 250)) return;
-            if (!c.styles.fillColor) c.styles.fillColor = [255, 247, 235];
-          });
-        }
-      }
-      // destacar linha INTEIRA quando o pedido tem obs de endereço (atenção máxima)
-      if (data.section === 'body'){
-        const ped = peds[data.row.index];
-        if (ped && ped.temObsEndereco){
-          // fundo âmbar suave em todas as células da linha (exceto recebido q fica em branco)
-          data.row.cells.forEach((c, ci) => {
-            if (ci === 8) return; // mantém branco a célula de assinatura
-            c.styles.fillColor = [255, 243, 220];
-          });
-          // borda esquerda âmbar grossa apenas na primeira célula
-          if (data.column.index === 0){
-            data.cell.styles.lineWidth = { left: 1.5, top: 0.1, right: 0.1, bottom: 0.1 };
-            data.cell.styles.lineColor = [194, 65, 12];
-          }
-        }
-        // destacar parada AGRUPADA (azul claro) — só se não for obs endereço
-        if (ped && ped.ehAgrupada && !ped.temObsEndereco){
-          data.row.cells.forEach((c, ci) => {
-            if (ci === 8) return;
-            c.styles.fillColor = [225, 240, 252];
-          });
-          if (data.column.index === 0){
-            data.cell.styles.lineWidth = { left: 1.5, top: 0.1, right: 0.1, bottom: 0.1 };
-            data.cell.styles.lineColor = [29, 78, 216];
-          }
-        }
+      if (data.section !== 'body') return;
+      const ped = peds[data.row.index];
+      if (!ped) return;
+      // prioridade de destaque: obs endereço (âmbar) > agrupada (azul) > janela manhã (creme)
+      let cor = null;
+      if (ped.temObsEndereco) cor = [255, 243, 220];
+      else if (ped.ehAgrupada) cor = [225, 240, 252];
+      else if (ped.horario && ped.horario.restrito && classificaJanela(ped.horario) === 'manha') cor = [255, 247, 235];
+      if (cor){
+        Object.values(data.row.cells).forEach((c, ci) => {
+          if (ci === 8) return; // célula "recebido" fica branca p/ assinatura
+          if (c && c.styles) c.styles.fillColor = cor;
+        });
       }
     },
     didDrawCell: (data) => {
+      // borda lateral colorida na primeira coluna (desenhada manualmente p/ compatibilidade)
+      if (data.section === 'body' && data.column.index === 0){
+        const ped = peds[data.row.index];
+        if (ped && ped.temObsEndereco){
+          doc.setDrawColor(194, 65, 12); // laranja
+          doc.setLineWidth(1.2);
+          doc.line(data.cell.x, data.cell.y, data.cell.x, data.cell.y + data.cell.height);
+        } else if (ped && ped.ehAgrupada){
+          doc.setDrawColor(29, 78, 216); // azul
+          doc.setLineWidth(1.2);
+          doc.line(data.cell.x, data.cell.y, data.cell.x, data.cell.y + data.cell.height);
+        }
+      }
       // QR code na coluna 3
       if (data.section === 'body' && data.column.index === 3){
         const ped = peds[data.row.index];
