@@ -3692,9 +3692,10 @@ function gerarPDFRomaneio(rotas){
 function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
   const PW = doc.internal.pageSize.getWidth();
   const PH = doc.internal.pageSize.getHeight();
-  const M = 14; // margem lateral mais generosa
+  const M = 12; // margem lateral
+  const W = PW - 2*M; // largura útil
 
-  // pedidos: usa ordem otimizada se houver
+  // pedidos
   let peds;
   if (rota.foiOtimizada){
     peds = [...rota.pedidos];
@@ -3708,350 +3709,389 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
 
   // status
   let status = 'VIÁVEL';
-  let statusColor = [22, 101, 52]; // verde escuro
+  let statusColor = [22, 101, 52];
   if (totV < minimoZona){ status = 'INVIÁVEL'; statusColor = [185, 28, 28]; }
   else if (totV > maximoZona){ status = 'SUPERLOTADA'; statusColor = [194, 65, 12]; }
-  else if (rota.dividida){ status = `PARTE ${rota.parteAtual}/${rota.totalPartes}`; statusColor = [29, 78, 216]; }
+  else if (rota.dividida){ status = 'PARTE ' + rota.parteAtual + '/' + rota.totalPartes; statusColor = [29, 78, 216]; }
   else if (rota.combinada){ status = 'COMBINADA'; statusColor = [21, 128, 61]; }
 
-  // cor da empresa (RGB)
+  // cor empresa
   const corHex = (APP_CONFIG.cor || '#d4ff3f').replace('#','');
   const corR = parseInt(corHex.substring(0,2),16);
   const corG = parseInt(corHex.substring(2,4),16);
   const corB = parseInt(corHex.substring(4,6),16);
-  // cor mais escura pra texto sobre fundo claro (sóbrio)
-  const corEscR = Math.max(0, Math.round(corR * 0.45));
-  const corEscG = Math.max(0, Math.round(corG * 0.45));
-  const corEscB = Math.max(0, Math.round(corB * 0.45));
+  const corEscR = Math.max(0, Math.round(corR * 0.4));
+  const corEscG = Math.max(0, Math.round(corG * 0.4));
+  const corEscB = Math.max(0, Math.round(corB * 0.4));
 
-  // PALETA SÓBRIA
-  const COR_INK = [17, 24, 39];      // preto suave
-  const COR_INK_DIM = [75, 85, 99];  // cinza médio
-  const COR_INK_MUTE = [156, 163, 175]; // cinza claro
-  const COR_LINE = [229, 231, 235];  // cinza linha
-  const COR_BG_SOFT = [249, 250, 251]; // cinza fundo
+  // PALETA NOTA FISCAL
+  const COR_INK = [20, 20, 20];
+  const COR_INK_DIM = [80, 80, 80];
+  const COR_INK_MUTE = [140, 140, 140];
+  const COR_LINE = [160, 160, 160];
+  const COR_LINE_SOFT = [210, 210, 210];
+  const COR_BG_SOFT = [245, 245, 245];
 
-  // ============= CABEÇALHO =============
-  // faixa lateral colorida (10mm fina à esquerda, identidade visual)
-  doc.setFillColor(corR, corG, corB);
-  doc.rect(0, 0, 6, PH, 'F');
+  // ===================================================================
+  // BORDA EXTERNA DO DOCUMENTO (estilo fatura)
+  // ===================================================================
+  doc.setDrawColor(...COR_LINE);
+  doc.setLineWidth(0.5);
+  doc.rect(M, M, W, PH - 2*M);
+  // borda interna fina dupla
+  doc.setLineWidth(0.2);
+  doc.rect(M + 1, M + 1, W - 2, PH - 2*M - 2);
 
-  // logo (se houver)
-  let textX = M;
+  // ===================================================================
+  // CABEÇALHO CENTRALIZADO
+  // ===================================================================
+  let y = M + 4;
+
+  // bloco superior — logo + nome empresa CENTRALIZADOS
   if (APP_CONFIG.logo){
     try {
       const imgType = APP_CONFIG.logo.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-      doc.addImage(APP_CONFIG.logo, imgType, M, M, 22, 22, undefined, 'FAST');
-      textX = M + 28;
-    } catch(e){ console.warn('Falha logo:', e); }
+      doc.addImage(APP_CONFIG.logo, imgType, M + 4, y + 1, 16, 16, undefined, 'FAST');
+    } catch(e){}
   }
 
-  // Nome da empresa (preto, peso bold, tracking sóbrio)
-  doc.setTextColor(...COR_INK);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(16);
-  const nomeEmpresa = (APP_CONFIG.nome || 'SUPER ABC').toUpperCase();
-  doc.text(nomeEmpresa, textX, M + 8);
-
-  // Subtítulo cinza
-  doc.setTextColor(...COR_INK_DIM);
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(8.5);
-  doc.text('ROMANEIO DE ENTREGA', textX, M + 13);
-
-  // CNPJ + telefone (se houver) — discreto
-  if (APP_CONFIG.cnpj || APP_CONFIG.fone){
-    doc.setTextColor(...COR_INK_MUTE);
-    doc.setFontSize(7.5);
-    const subtext = [APP_CONFIG.cnpj ? `CNPJ ${APP_CONFIG.cnpj}` : '', APP_CONFIG.fone || ''].filter(Boolean).join('  ·  ');
-    doc.text(subtext, textX, M + 18);
-  }
-  // endereço da base (mais discreto)
-  doc.setTextColor(...COR_INK_MUTE);
-  doc.setFontSize(7);
-  const enderecoBase = APP_CONFIG.endereco || 'Av. Guaraciaba 313, Mauá-SP';
-  doc.text(`BASE: ${enderecoBase}`, textX, M + 23);
-
-  // bloco de info do lado direito (data, página, número rota)
-  const rightX = PW - M;
-  doc.setTextColor(...COR_INK_DIM);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(8);
-  doc.text('EMISSÃO', rightX, M + 3, {align:'right'});
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(10);
-  doc.setTextColor(...COR_INK);
-  doc.text(`${now.data}  ${now.hora}`, rightX, M + 8, {align:'right'});
-
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(8);
-  doc.setTextColor(...COR_INK_DIM);
-  doc.text('PÁGINA', rightX, M + 14, {align:'right'});
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(10);
-  doc.setTextColor(...COR_INK);
-  doc.text(`${pageNum} / ${totalPages}`, rightX, M + 19, {align:'right'});
-
-  // linha divisória fina
-  doc.setDrawColor(...COR_LINE);
-  doc.setLineWidth(0.3);
-  doc.line(M, M + 26, PW - M, M + 26);
-
-  // ============= TÍTULO DA ROTA (corpo) =============
-  let y = M + 34;
-
-  // Pequeno label "ROTA"
-  doc.setTextColor(corEscR, corEscG, corEscB);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(8);
-  doc.text('ROTA', M, y);
-
-  // Nome da rota grande
-  y += 6;
+  // Nome empresa centralizado
   doc.setTextColor(...COR_INK);
   doc.setFont('helvetica','bold');
   doc.setFontSize(18);
-  const nomeRota = rota.nome.length > 60 ? rota.nome.substring(0,58)+'…' : rota.nome;
-  doc.text(nomeRota, M, y);
+  const nomeEmpresa = (APP_CONFIG.nome || 'SUPER ABC').toUpperCase();
+  doc.text(nomeEmpresa, PW / 2, y + 8, {align:'center'});
 
-  // se combinada, mostra subzonas em itálico
-  y += 6;
-  if (rota.combinada){
-    doc.setTextColor(...COR_INK_DIM);
-    doc.setFont('helvetica','italic');
-    doc.setFontSize(8.5);
-    const subzonas = rota.zonasOrigem.map(z => z.split('·')[1] ? z.split('·')[1].trim() : z).join('  +  ');
-    doc.text(`Fusão de zonas vizinhas: ${subzonas}`, M, y);
-    y += 4;
-  }
-
-  // cidades
-  const cidades = [...new Set(peds.map(p=>p.cidade).filter(Boolean))];
-  doc.setTextColor(...COR_INK_DIM);
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(8.5);
-  doc.text(cidades.slice(0,10).join('  ·  ') + (cidades.length>10?`  +${cidades.length-10}`:''), M, y);
-  y += 6;
-
-  // ============= BADGE STATUS + INDICADORES =============
-  // badge de status
-  const badgeW = 38, badgeH = 8;
-  doc.setFillColor(...statusColor);
-  doc.roundedRect(M, y, badgeW, badgeH, 1.5, 1.5, 'F');
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(8.5);
-  doc.text(status, M + badgeW/2, y + 5.5, {align:'center'});
-
-  // info adicional ao lado do badge
-  doc.setTextColor(...COR_INK_DIM);
+  // CNPJ/fone centralizados (se existirem)
   doc.setFont('helvetica','normal');
   doc.setFontSize(8);
-  const labelCat = MINIMOS_LABEL[rota.tipo] || rota.tipo;
-  const infoFaixa = `${labelCat}   ·   Faixa ideal: ${fmtBRL(minimoZona)} – ${fmtBRL(maximoZona)}`;
-  doc.text(infoFaixa, M + badgeW + 5, y + 5.5);
+  doc.setTextColor(...COR_INK_DIM);
+  const linhaDados = [];
+  if (APP_CONFIG.cnpj) linhaDados.push('CNPJ ' + APP_CONFIG.cnpj);
+  if (APP_CONFIG.fone) linhaDados.push(APP_CONFIG.fone);
+  if (linhaDados.length){
+    doc.text(linhaDados.join('  |  '), PW / 2, y + 13, {align:'center'});
+  }
 
-  // se otimizada, mostra do lado direito
+  // endereço da base centralizado
+  doc.setFontSize(7.5);
+  doc.setTextColor(...COR_INK_MUTE);
+  const enderecoBase = APP_CONFIG.endereco || 'Av. Guaraciaba 313, Mauá-SP';
+  doc.text(enderecoBase, PW / 2, y + 17, {align:'center'});
+
+  y += 21;
+
+  // Linha divisória dupla (estilo fatura)
+  doc.setDrawColor(...COR_LINE);
+  doc.setLineWidth(0.4);
+  doc.line(M + 2, y, PW - M - 2, y);
+  doc.setLineWidth(0.15);
+  doc.line(M + 2, y + 0.8, PW - M - 2, y + 0.8);
+
+  y += 5;
+
+  // ===================================================================
+  // TÍTULO "ROMANEIO DE ENTREGA" + Nº + DATA
+  // ===================================================================
+  // título grande centralizado com letra espaçada
+  doc.setTextColor(...COR_INK);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(13);
+  doc.text('R O M A N E I O   D E   E N T R E G A', PW / 2, y + 5, {align:'center'});
+
+  y += 8;
+
+  // ===================================================================
+  // BLOCO 1: DADOS DO DOCUMENTO (3 colunas em caixas)
+  // ===================================================================
+  const blocoH1 = 14;
+  const col3W = (W - 4) / 3;
+
+  // caixa esquerda: Nº Romaneio
+  drawCampoFatura(doc, M + 2, y, col3W - 1, blocoH1, 'Nº ROMANEIO', `${String(pageNum).padStart(4,'0')} / ${String(totalPages).padStart(4,'0')}`, COR_INK, COR_INK_DIM, COR_LINE_SOFT);
+  // caixa centro: Data emissão
+  drawCampoFatura(doc, M + 2 + col3W + 0.5, y, col3W - 1, blocoH1, 'DATA DE EMISSÃO', `${now.data}  às  ${now.hora}`, COR_INK, COR_INK_DIM, COR_LINE_SOFT);
+  // caixa direita: Status (com cor)
+  drawCampoFaturaStatus(doc, M + 2 + 2*(col3W + 0.5), y, col3W - 1, blocoH1, 'SITUAÇÃO DA ROTA', status, statusColor);
+
+  y += blocoH1 + 3;
+
+  // ===================================================================
+  // BLOCO 2: IDENTIFICAÇÃO DA ROTA (caixa larga, estilo "destinatário")
+  // ===================================================================
+  const blocoH2 = 22;
+  doc.setDrawColor(...COR_LINE_SOFT);
+  doc.setLineWidth(0.3);
+  doc.rect(M + 2, y, W - 4, blocoH2);
+
+  // label superior
+  doc.setFillColor(...COR_BG_SOFT);
+  doc.rect(M + 2, y, W - 4, 4, 'F');
+  doc.setTextColor(...COR_INK_DIM);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(7);
+  doc.text('IDENTIFICAÇÃO DA ROTA', M + 4, y + 2.8);
+
+  // nome da rota grande
+  doc.setTextColor(...COR_INK);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(13);
+  const nomeRota = rota.nome.length > 70 ? rota.nome.substring(0,68)+'…' : rota.nome;
+  doc.text(nomeRota, M + 4, y + 10);
+
+  // categoria
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(...COR_INK_DIM);
+  const labelCat = MINIMOS_LABEL[rota.tipo] || rota.tipo;
+  doc.text(`Categoria: ${labelCat}   |   Faixa ideal: ${fmtBRL(minimoZona)} a ${fmtBRL(maximoZona)}`, M + 4, y + 15);
+
+  // se combinada/dividida — observação à direita
+  if (rota.combinada){
+    const subz = rota.zonasOrigem.map(z => z.split('·')[1] ? z.split('·')[1].trim() : z).join(' + ');
+    doc.setFont('helvetica','italic');
+    doc.setFontSize(7);
+    doc.setTextColor(...COR_INK_DIM);
+    doc.text('Fusão automática: ' + (subz.length > 50 ? subz.substring(0,48)+'…' : subz), M + 4, y + 19);
+  }
+
+  // indicador "otimizada" à direita
   if (rota.foiOtimizada){
     doc.setFillColor(corR, corG, corB);
-    doc.circle(PW - M - 32, y + 4, 1.3, 'F');
+    doc.circle(PW - M - 38, y + 17.5, 1.3, 'F');
     doc.setTextColor(corEscR, corEscG, corEscB);
     doc.setFont('helvetica','bold');
-    doc.setFontSize(7.5);
-    doc.text('SEQUÊNCIA OTIMIZADA', PW - M - 28, y + 5.5);
+    doc.setFontSize(7);
+    doc.text('SEQUÊNCIA OTIMIZADA', PW - M - 35, y + 18.5);
   }
-  y += badgeH + 8;
 
-  // ============= 4 KPI BOXES SÓBRIOS =============
-  const kpiH = 22;
-  const kpiGap = 4;
-  const kpiW = (PW - 2*M - 3*kpiGap) / 4;
+  y += blocoH2 + 3;
+
+  // ===================================================================
+  // BLOCO 3: TOTALIZADORES (4 caixas iguais estilo fatura)
+  // ===================================================================
+  const blocoH3 = 14;
+  const col4W = (W - 6) / 4;
   const kmTotal = rota.foiOtimizada && rota.kmOtimizado > 0
     ? rota.kmOtimizado
     : (rota.km*2 + Math.max(0, peds.length-1)*1.2 + (rota.combinada?(rota.zonasOrigem.length-1)*5:0));
 
-  const kpis = [
-    { label: 'PARADAS',   val: String(peds.length), sub: cidades.length + ' cidades' },
-    { label: 'VALOR TOTAL', val: fmtBRL(totV), sub: `R$/parada ${fmtBRL(totV/peds.length)}` },
-    { label: 'ITENS',     val: fmtInt(totI), sub: 'volumes a entregar' },
-    { label: 'DISTÂNCIA', val: Math.round(kmTotal) + ' km', sub: rota.foiOtimizada ? 'otimizada' : 'estimada' },
-  ];
-  kpis.forEach((k, i) => {
-    const x = M + i*(kpiW + kpiGap);
-    // fundo branco com borda fina
-    doc.setFillColor(255,255,255);
-    doc.setDrawColor(...COR_LINE);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(x, y, kpiW, kpiH, 1.5, 1.5, 'FD');
+  drawCampoFatura(doc, M + 2,                    y, col4W - 0.5, blocoH3, 'QTDE. PARADAS', String(peds.length), COR_INK, COR_INK_DIM, COR_LINE_SOFT);
+  drawCampoFatura(doc, M + 2 + col4W + 0.5,      y, col4W - 0.5, blocoH3, 'VALOR TOTAL',  fmtBRL(totV),         COR_INK, COR_INK_DIM, COR_LINE_SOFT);
+  drawCampoFatura(doc, M + 2 + 2*(col4W + 0.5),  y, col4W - 0.5, blocoH3, 'QTDE. ITENS',  fmtInt(totI),         COR_INK, COR_INK_DIM, COR_LINE_SOFT);
+  drawCampoFatura(doc, M + 2 + 3*(col4W + 0.5),  y, col4W - 0.5, blocoH3, 'DISTÂNCIA EST.', Math.round(kmTotal) + ' km', COR_INK, COR_INK_DIM, COR_LINE_SOFT);
 
-    // label uppercase pequeno
-    doc.setTextColor(...COR_INK_MUTE);
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(7);
-    doc.text(k.label, x + 4, y + 5);
+  y += blocoH3 + 4;
 
-    // valor grande preto
-    doc.setTextColor(...COR_INK);
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(13);
-    doc.text(String(k.val), x + 4, y + 13);
-
-    // sublabel cinza
-    doc.setTextColor(...COR_INK_MUTE);
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(7);
-    doc.text(k.sub, x + 4, y + 18);
-
-    // faixinha de cor da empresa no topo do kpi
-    doc.setFillColor(corR, corG, corB);
-    doc.rect(x, y, kpiW, 0.8, 'F');
-  });
-  y += kpiH + 6;
-
-  // ============= TABELA DE PARADAS =============
-  // Cabeçalho "PARADAS · X CLIENTES"
+  // ===================================================================
+  // BLOCO 4: TABELA DE PARADAS (estilo planilha de fatura)
+  // ===================================================================
+  // Mini-label antes da tabela
   doc.setTextColor(...COR_INK);
   doc.setFont('helvetica','bold');
-  doc.setFontSize(9);
-  doc.text(`PARADAS  ·  ${peds.length} clientes`, M, y);
+  doc.setFontSize(8.5);
+  doc.text(`RELAÇÃO DE PARADAS  ·  ${peds.length} clientes`, M + 2, y);
   doc.setTextColor(...COR_INK_MUTE);
   doc.setFont('helvetica','normal');
-  doc.setFontSize(7.5);
-  doc.text(rota.foiOtimizada ? 'ordem de entrega otimizada' : 'ordem do CEP menor para o maior', PW - M, y, {align:'right'});
-  y += 3;
+  doc.setFontSize(7);
+  doc.text(rota.foiOtimizada ? 'Ordem otimizada por algoritmo TSP' : 'Ordem do CEP menor para o maior', PW - M - 2, y, {align:'right'});
 
-  // tabela com colunas: # · Pedido · CEP · QR · Cliente · Cidade · Janela · Valor · Recebido
+  y += 2;
+
   const tabelaDados = peds.map((p, i) => ([
     String(i+1).padStart(2,'0'),
     p.pedido || '',
     p.cepFmt || '',
-    '', // QR placeholder
-    truncarTexto(p.cliente || '(sem cliente)', 34),
+    '', // QR
+    truncarTexto(p.cliente || '(sem cliente)', 32),
     truncarTexto(p.cidade || '', 14),
     p.horario && p.horario.restrito ? p.horario.label : '',
     p.valor ? fmtBRL(p.valor) : '—',
-    '', // assinatura
+    '', // recebido
   ]));
 
   doc.autoTable({
     startY: y,
-    head: [['#', 'Pedido', 'CEP', 'QR', 'Cliente', 'Cidade', 'Janela', 'Valor', 'Recebido']],
+    head: [['#', 'PEDIDO', 'CEP', 'QR', 'CLIENTE / DESTINATÁRIO', 'CIDADE', 'JANELA', 'VALOR (R$)', 'RECEBIDO POR']],
     body: tabelaDados,
-    margin: { left: M, right: M },
+    margin: { left: M + 2, right: M + 2 },
+    tableLineColor: COR_LINE,
+    tableLineWidth: 0.3,
     styles: {
       font: 'helvetica',
       fontSize: 8,
       cellPadding: 2.2,
-      lineColor: COR_LINE,
-      lineWidth: 0.15,
+      lineColor: COR_LINE_SOFT,
+      lineWidth: 0.1,
       textColor: COR_INK,
       valign: 'middle',
-      minCellHeight: 14, // alto o suficiente pro QR
+      minCellHeight: 14,
     },
     headStyles: {
-      fillColor: COR_INK, // cabeçalho preto sóbrio
-      textColor: [255,255,255],
+      fillColor: [235, 235, 235],
+      textColor: COR_INK,
       fontStyle: 'bold',
-      fontSize: 7.5,
-      cellPadding: 3,
+      fontSize: 7,
+      cellPadding: 2.8,
       valign: 'middle',
+      halign: 'left',
+      lineColor: COR_LINE,
+      lineWidth: 0.3,
     },
     columnStyles: {
-      0: { cellWidth: 8,  halign:'center', fontStyle:'bold', textColor: COR_INK_MUTE },
-      1: { cellWidth: 18, fontSize: 7.5, fontStyle:'bold' },
+      0: { cellWidth: 8,  halign:'center', fontStyle:'bold' },
+      1: { cellWidth: 19, fontSize: 7.5, fontStyle:'bold' },
       2: { cellWidth: 18, fontSize: 7.5 },
-      3: { cellWidth: 14, halign:'center' }, // QR
+      3: { cellWidth: 14, halign:'center' },
       4: { cellWidth: 'auto', fontStyle:'bold' },
       5: { cellWidth: 22, textColor: COR_INK_DIM, fontSize: 7.5 },
       6: { cellWidth: 18, fontSize: 7, fontStyle:'bold', textColor:[194, 65, 12] },
       7: { cellWidth: 22, halign:'right', fontStyle:'bold' },
-      8: { cellWidth: 22, fillColor:[252,252,250] },
+      8: { cellWidth: 26, fillColor:[253,253,250] },
     },
-    alternateRowStyles: { fillColor: [250, 250, 250] },
     didParseCell: (data) => {
-      // destacar janelas críticas (manhã/até) com fundo leve
+      // destacar manhã/até com fundo leve
       if (data.section === 'body' && data.column.index === 6 && data.cell.raw){
         const v = String(data.cell.raw).toLowerCase();
         if (v.includes('manh') || v.includes('até')){
           data.row.cells.forEach(c => {
-            if (!c.styles.fillColor || c.styles.fillColor[0] >= 248){
-              c.styles.fillColor = [255, 247, 235];
-            }
+            if (!c.styles.fillColor || (c.styles.fillColor[0] === 253 && c.styles.fillColor[2] === 250)) return;
+            if (!c.styles.fillColor) c.styles.fillColor = [255, 247, 235];
           });
         }
       }
     },
     didDrawCell: (data) => {
-      // desenhar QR code na coluna 3
+      // QR code na coluna 3
       if (data.section === 'body' && data.column.index === 3){
         const ped = peds[data.row.index];
         if (ped && ped.cliente){
           try {
-            // gerar URL do Google Maps com o endereço
             const queryParts = [ped.cliente, ped.cidade].filter(Boolean).join(', ');
             const cepLimpo = (ped.cep || '').toString().replace(/\D/g,'');
-            const cepPart = cepLimpo ? `, ${cepLimpo}` : '';
-            const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryParts + cepPart)}`;
-
-            // gerar QR usando qrcode-generator
+            const cepPart = cepLimpo ? ', ' + cepLimpo : '';
+            const url = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(queryParts + cepPart);
             if (typeof qrcode !== 'undefined'){
               const qr = qrcode(0, 'M');
               qr.addData(url);
               qr.make();
               const dataUrl = qr.createDataURL(4, 0);
-              // Centralizar QR na célula
               const qrSize = Math.min(data.cell.height - 2, data.cell.width - 2, 12);
               const cx = data.cell.x + (data.cell.width - qrSize) / 2;
               const cy = data.cell.y + (data.cell.height - qrSize) / 2;
               doc.addImage(dataUrl, 'PNG', cx, cy, qrSize, qrSize);
             }
-          } catch(e){ /* falha silenciosa */ }
+          } catch(e){}
         }
       }
     },
     didDrawPage: (data) => {
-      // ============= RODAPÉ =============
-      const footY = PH - 18;
-
-      // linha divisória
+      // Re-desenhar borda externa em páginas adicionais (autoTable pode estourar)
       doc.setDrawColor(...COR_LINE);
-      doc.setLineWidth(0.3);
-      doc.line(M, footY, PW - M, footY);
-
-      // totalizador esquerda
-      doc.setTextColor(...COR_INK_MUTE);
-      doc.setFont('helvetica','bold');
-      doc.setFontSize(7);
-      doc.text('TOTAL DA ROTA', M, footY + 4);
-      doc.setTextColor(...COR_INK);
-      doc.setFont('helvetica','bold');
-      doc.setFontSize(10);
-      doc.text(`${peds.length} paradas  ·  ${fmtBRL(totV)}  ·  ${fmtInt(totI)} itens`, M, footY + 9.5);
-
-      // assinatura direita
-      doc.setTextColor(...COR_INK_MUTE);
-      doc.setFont('helvetica','normal');
-      doc.setFontSize(7);
-      doc.text('Motorista', PW - M - 70, footY + 4);
-      doc.setDrawColor(...COR_INK_DIM);
-      doc.setLineWidth(0.3);
-      doc.line(PW - M - 70, footY + 8, PW - M - 38, footY + 8);
-
-      doc.text('Assinatura', PW - M - 35, footY + 4);
-      doc.line(PW - M - 35, footY + 8, PW - M, footY + 8);
-
-      // marca d'água do gerador (super discreta)
-      doc.setTextColor(180,180,180);
-      doc.setFont('helvetica','italic');
-      doc.setFontSize(6);
-      doc.text(`Gerado por ${APP_CONFIG.nome || 'SUPER ABC'} · ROTA·CENTRAL em ${now.data} ${now.hora}`, PW/2, PH - 6, {align:'center'});
-
-      // QR escaneie indicação
-      doc.setTextColor(...COR_INK_MUTE);
-      doc.setFontSize(6.5);
-      doc.text('★ Escaneie o QR de cada parada para abrir o endereço no Google Maps/Waze', M, PH - 6);
+      doc.setLineWidth(0.5);
+      doc.rect(M, M, W, PH - 2*M);
+      doc.setLineWidth(0.2);
+      doc.rect(M + 1, M + 1, W - 2, PH - 2*M - 2);
     },
   });
+
+  // ===================================================================
+  // RODAPÉ — TOTALIZADOR + ASSINATURAS (estilo fatura)
+  // ===================================================================
+  // posição: 28mm acima do bottom
+  const rodapeY = PH - M - 26;
+
+  // Caixa de totalizador grande
+  doc.setDrawColor(...COR_LINE);
+  doc.setLineWidth(0.4);
+  doc.rect(M + 2, rodapeY, W - 4, 10);
+  doc.setFillColor(...COR_BG_SOFT);
+  doc.rect(M + 2, rodapeY, W - 4, 10, 'F');
+  doc.setDrawColor(...COR_LINE);
+  doc.rect(M + 2, rodapeY, W - 4, 10);
+
+  doc.setTextColor(...COR_INK_DIM);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8);
+  doc.text('TOTAL GERAL DA ROTA', M + 5, rodapeY + 4);
+
+  doc.setTextColor(...COR_INK);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(11);
+  doc.text(
+    `${peds.length} paradas   |   ${fmtBRL(totV)}   |   ${fmtInt(totI)} itens   |   ${Math.round(kmTotal)} km`,
+    M + 5, rodapeY + 8.5
+  );
+
+  // Linhas de assinatura (2 colunas)
+  const sigY = rodapeY + 14;
+  const sigColW = (W - 8) / 2;
+
+  // assinatura motorista
+  doc.setDrawColor(...COR_INK);
+  doc.setLineWidth(0.3);
+  doc.line(M + 4, sigY + 5, M + 4 + sigColW - 4, sigY + 5);
+  doc.setTextColor(...COR_INK_DIM);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7);
+  doc.text('MOTORISTA / RESPONSÁVEL PELA ENTREGA', M + 4 + (sigColW-4)/2, sigY + 8, {align:'center'});
+
+  // assinatura empresa
+  doc.line(M + 4 + sigColW, sigY + 5, M + 4 + 2*sigColW - 4, sigY + 5);
+  doc.text('CONFERÊNCIA / EXPEDIÇÃO', M + 4 + sigColW + (sigColW-4)/2, sigY + 8, {align:'center'});
+
+  // Linha de geração no rodapé absoluto
+  doc.setTextColor(...COR_INK_MUTE);
+  doc.setFont('helvetica','italic');
+  doc.setFontSize(6);
+  doc.text(
+    `Documento gerado eletronicamente por ${APP_CONFIG.nome || 'SUPER ABC'} · sistema ROTA·CENTRAL em ${now.data} ${now.hora}   ·   Página ${pageNum} de ${totalPages}`,
+    PW / 2, PH - M - 2, {align:'center'}
+  );
+}
+
+// helper: caixa estilo fatura (label em cima cinza, valor grande embaixo)
+function drawCampoFatura(doc, x, y, w, h, label, valor, corValor, corLabel, corBorda){
+  doc.setDrawColor(...corBorda);
+  doc.setLineWidth(0.3);
+  doc.rect(x, y, w, h);
+  // label box top
+  doc.setFillColor(245, 245, 245);
+  doc.rect(x, y, w, 4, 'F');
+  doc.line(x, y + 4, x + w, y + 4);
+  doc.setTextColor(...corLabel);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(7);
+  doc.text(label, x + 2, y + 2.8);
+  // valor centralizado verticalmente abaixo
+  doc.setTextColor(...corValor);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(11);
+  doc.text(valor, x + w/2, y + h - 3, {align:'center'});
+}
+
+function drawCampoFaturaStatus(doc, x, y, w, h, label, valor, statusColor){
+  // borda
+  doc.setDrawColor(160, 160, 160);
+  doc.setLineWidth(0.3);
+  doc.rect(x, y, w, h);
+  // label
+  doc.setFillColor(245, 245, 245);
+  doc.rect(x, y, w, 4, 'F');
+  doc.line(x, y + 4, x + w, y + 4);
+  doc.setTextColor(80, 80, 80);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(7);
+  doc.text(label, x + 2, y + 2.8);
+  // badge colorido com texto branco
+  const badgeW = w - 4;
+  const badgeH = 6.5;
+  doc.setFillColor(...statusColor);
+  doc.roundedRect(x + 2, y + (h - badgeH + 2)/2 + 1, badgeW, badgeH, 1.2, 1.2, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(9);
+  doc.text(valor, x + w/2, y + (h + 4)/2 + 2, {align:'center'});
 }
 
 
