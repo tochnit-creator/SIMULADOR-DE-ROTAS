@@ -902,6 +902,77 @@
   }
   .manual-hint strong{color:var(--accent);font-family:'JetBrains Mono',monospace}
 
+  /* FILTRO DE STATUS — chips multi-select */
+  .status-filter{
+    margin-top:14px;
+    padding:14px 16px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:rgba(0,0,0,0.2);
+  }
+  .status-filter-head{
+    display:flex;justify-content:space-between;align-items:center;
+    flex-wrap:wrap;gap:10px;
+    margin-bottom:10px;
+  }
+  .status-filter-head label{
+    font-family:'JetBrains Mono',monospace;font-size:10.5px;
+    color:var(--ink-dim);text-transform:uppercase;letter-spacing:1px;
+  }
+  .status-filter-actions{display:flex;gap:6px;flex-wrap:wrap}
+  .status-mini-btn{
+    background:transparent;border:1px solid var(--line);
+    color:var(--ink-mute);
+    padding:4px 9px;border-radius:6px;
+    font-family:inherit;font-size:10.5px;
+    cursor:pointer;transition:all .15s;
+  }
+  .status-mini-btn:hover{
+    border-color:var(--accent);
+    color:var(--accent);
+    background:rgba(212,255,63,0.04);
+  }
+  .status-chips{display:flex;flex-wrap:wrap;gap:6px}
+  .status-chip{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:5px 11px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:rgba(255,255,255,0.02);
+    color:var(--ink-mute);
+    font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;
+    cursor:pointer;
+    transition:all .15s;
+    user-select:none;
+    letter-spacing:0.3px;
+  }
+  .status-chip:hover{
+    border-color:var(--ink-dim);
+    color:var(--ink-dim);
+  }
+  .status-chip.chip-active{
+    background:rgba(212,255,63,0.1);
+    border-color:var(--accent);
+    color:var(--accent);
+  }
+  .status-chip .chip-count{
+    background:rgba(255,255,255,0.06);
+    color:var(--ink-mute);
+    font-size:9.5px;
+    padding:1px 6px;
+    border-radius:4px;
+    font-weight:500;
+  }
+  .status-chip.chip-active .chip-count{
+    background:rgba(212,255,63,0.15);
+    color:var(--accent);
+  }
+  .status-filter-hint{
+    margin-top:10px;
+    font-size:11px;color:var(--ink-mute);
+    line-height:1.4;
+  }
+
   /* CONFIGURAÇÃO DE TEMPO */
   .tempo-config{
     margin-top:14px;
@@ -1055,7 +1126,7 @@
   .sugest-list::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px}
   .sugest-row{
     display:grid;
-    grid-template-columns: 22px 70px 1fr 100px 90px 90px 80px;
+    grid-template-columns: 22px 70px 1fr 90px 80px 80px 75px 75px;
     gap:8px;align-items:center;
     padding:7px 10px;
     font-size:11.5px;cursor:pointer;
@@ -1071,6 +1142,14 @@
   .sugest-cep{color:var(--ink-dim);font-size:10.5px}
   .sugest-client{color:var(--ink);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .sugest-cidade{color:var(--ink-mute);font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sugest-status{
+    font-family:'JetBrains Mono',monospace;font-size:9.5px;
+    color:var(--ink-mute);text-align:center;
+    padding:2px 5px;border-radius:5px;
+    background:rgba(255,255,255,0.04);
+    letter-spacing:0.3px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
   .sugest-categ{
     font-size:10px;padding:2px 6px;border-radius:5px;text-align:center;font-weight:600;
     text-transform:uppercase;letter-spacing:0.3px;
@@ -1105,7 +1184,7 @@
       grid-template-columns: 22px 1fr 90px;
       gap:6px;
     }
-    .sugest-cep, .sugest-cidade, .sugest-categ, .sugest-dist{display:none}
+    .sugest-cep, .sugest-cidade, .sugest-categ, .sugest-dist, .sugest-status{display:none}
   }
 
   .routes-toolbar{
@@ -2057,7 +2136,7 @@
   </div>
 
   <!-- DESENVOLVIDO POR — assinaturas animadas -->
-  <div class="credits-section">
+  <div class="credits-section" id="creditsSection">
     <div class="credits-title">Desenvolvido por</div>
     <div class="credits-grid">
       <div class="credits-card">
@@ -2199,6 +2278,19 @@
               </button>
             </div>
           </div>
+          <!-- Filtro de status (multi-select) específico das sugestões automáticas -->
+          <div class="status-filter" id="statusFilterAuto" style="margin-bottom:18px">
+            <div class="status-filter-head">
+              <label>Status incluídos nas sugestões automáticas</label>
+              <div class="status-filter-actions">
+                <button type="button" class="status-mini-btn" id="btnStatusAutoTodos">marcar todos</button>
+                <button type="button" class="status-mini-btn" id="btnStatusAutoProntos">só prontos (EXPEDICAO + FATURAR)</button>
+                <button type="button" class="status-mini-btn" id="btnStatusAutoNenhum">desmarcar todos</button>
+              </div>
+            </div>
+            <div id="statusChipsAuto" class="status-chips"></div>
+            <div class="status-filter-hint">💡 As sugestões automáticas vão considerar apenas pedidos com os status marcados. Padrão: só pedidos prontos.</div>
+          </div>
           <div id="routeCards"></div>
         </div>
 
@@ -2222,13 +2314,20 @@
                 <label>CEP final (5 díg.)</label>
                 <input type="text" id="manualCepFim" placeholder="09399" maxlength="5" inputmode="numeric" />
               </div>
-              <div class="manual-field manual-field-status">
-                <label>Filtrar por status</label>
-                <select id="manualStatus">
-                  <option value="TODOS">Todos os status</option>
-                </select>
-              </div>
               <button id="btnMontarManual" class="route-action-btn primary">Montar rota</button>
+            </div>
+            <!-- Filtro de status (multi-select com chips) -->
+            <div class="status-filter">
+              <div class="status-filter-head">
+                <label>Status incluídos na rota e nas sugestões</label>
+                <div class="status-filter-actions">
+                  <button type="button" class="status-mini-btn" id="btnStatusTodos">marcar todos</button>
+                  <button type="button" class="status-mini-btn" id="btnStatusProntos">só prontos (EXPEDICAO + FATURAR)</button>
+                  <button type="button" class="status-mini-btn" id="btnStatusNenhum">desmarcar todos</button>
+                </div>
+              </div>
+              <div id="statusChips" class="status-chips"></div>
+              <div class="status-filter-hint">💡 Por padrão só pedidos prontos. Marque outros status se quiser incluí-los na rota e nas sugestões de agregar.</div>
             </div>
             <div class="manual-hint" id="manualHint">
               💡 Dica: para "comece com 092 até 093", use CEP inicial <strong>09200</strong> e final <strong>09399</strong>.
@@ -3120,6 +3219,10 @@ function doisOpt(sequencia, base, manhaCount){
 let DADOS = [];           // todos os pedidos normalizados
 let STATUS_LIST = [];     // lista de status únicos
 let activeStatus = 'TODOS';
+// Status default considerados "prontos pra entrega"
+const STATUS_PRONTOS = new Set(['EXPEDICAO', 'FATURAR']);
+// Filtro multi-select da aba "Sugestões automáticas" (default: prontos)
+let STATUS_SELECIONADOS_AUTO = new Set();
 let activeView = 'pedidos';
 let searchTerm = '';
 let charts = {};
@@ -3619,6 +3722,7 @@ function processData(aoa){
   // se passou limpa, renderiza direto
   renderAll();
   document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('creditsSection')?.classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
 }
 
@@ -3817,6 +3921,7 @@ function abrirModalValidacao(v){
 document.getElementById('btnValConfirm')?.addEventListener('click', () => {
   fecharModal('modalValidation');
   document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('creditsSection')?.classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   renderAll();
 });
@@ -3826,6 +3931,8 @@ function renderAll(){
   // reset estado de seleção de rotas (cada nova planilha começa do zero)
   chipsRenderizados = false;
   rotasSelecionadas.clear();
+  // popular filtro multi-status das sugestões automáticas (default: prontos)
+  popularStatusAuto();
   renderKpisGeneral();
   renderFilters();
   renderTable();
@@ -4078,12 +4185,22 @@ function renderTable(){
 // ---------- SUGESTÕES DE ROTA ----------
 function renderRoutes(){
   const cont = document.getElementById('routeCards');
-  // base = pedidos filtrados pelo status ativo, mas só CEP <= 35.000 e SEM retira
-  let base = activeStatus === 'TODOS' ? DADOS : DADOS.filter(d=>d.status===activeStatus);
+  // base = pedidos filtrados pelo filtro MULTI-STATUS das sugestões automáticas, CEP <= 35.000 e SEM retira
+  // Se STATUS_SELECIONADOS_AUTO vazio (não popularizou ainda), cai pro activeStatus (compat)
+  const usarMultiStatus = STATUS_SELECIONADOS_AUTO && STATUS_SELECIONADOS_AUTO.size > 0;
+  let base;
+  if (usarMultiStatus){
+    base = DADOS.filter(d => STATUS_SELECIONADOS_AUTO.has(d.status));
+  } else {
+    base = activeStatus === 'TODOS' ? DADOS : DADOS.filter(d=>d.status===activeStatus);
+  }
   base = base.filter(d => d.cep5 != null && d.cep5 <= 35000 && !d.retira);
 
   if (!base.length){
-    cont.innerHTML = `<div class="empty"><div class="big">sem rotas para sugerir</div><p>Não há pedidos com CEP até 35.000 no filtro atual.</p></div>`;
+    const statusTxt = usarMultiStatus
+      ? `<br><br>Status marcados: <strong>${[...STATUS_SELECIONADOS_AUTO].join(', ') || '(nenhum)'}</strong>. Tente marcar mais status no filtro acima.`
+      : '';
+    cont.innerHTML = `<div class="empty"><div class="big">sem rotas para sugerir</div><p>Não há pedidos com CEP até 35.000 no filtro atual.${statusTxt}</p></div>`;
     return;
   }
 
@@ -5865,15 +5982,106 @@ document.querySelectorAll('.subtab').forEach(st => {
   });
 });
 
-function popularStatusManual(){
-  const sel = document.getElementById('manualStatus');
-  if (!sel) return;
-  const atual = sel.value;
-  const opts = ['<option value="TODOS">Todos os status</option>']
-    .concat(STATUS_LIST.map(s => `<option value="${s}">${s}</option>`));
-  sel.innerHTML = opts.join('');
-  if (atual) sel.value = atual;
+// === FILTRO DE STATUS (multi-select via chips) — MONTAR ROTA MANUAL ===
+// Default: só "prontos" (EXPEDICAO + FATURAR) — usuário pode marcar outros
+// STATUS_PRONTOS já definido no escopo global acima (junto com activeStatus)
+let STATUS_SELECIONADOS = new Set(); // será preenchido em popularStatusManual
+
+// === FILTRO DE STATUS (multi-select via chips) — SUGESTÕES AUTOMÁTICAS ===
+function popularStatusAuto(){
+  const cont = document.getElementById('statusChipsAuto');
+  if (!cont) return;
+  const contagem = {};
+  DADOS.forEach(d => { contagem[d.status] = (contagem[d.status]||0)+1; });
+  // primeira vez: marcar só os prontos QUE EXISTEM
+  if (STATUS_SELECIONADOS_AUTO.size === 0){
+    STATUS_LIST.forEach(s => { if (STATUS_PRONTOS.has(s)) STATUS_SELECIONADOS_AUTO.add(s); });
+  }
+  // se nenhum dos prontos existe, marca o primeiro status disponível
+  if (STATUS_SELECIONADOS_AUTO.size === 0 && STATUS_LIST.length){
+    STATUS_SELECIONADOS_AUTO.add(STATUS_LIST[0]);
+  }
+  cont.innerHTML = STATUS_LIST.map(s => {
+    const ativo = STATUS_SELECIONADOS_AUTO.has(s);
+    const n = contagem[s] || 0;
+    return `<span class="status-chip ${ativo?'chip-active':''}" data-status="${s}">${s}<span class="chip-count">${n}</span></span>`;
+  }).join('');
+  cont.querySelectorAll('.status-chip').forEach(c => {
+    c.addEventListener('click', () => {
+      const s = c.dataset.status;
+      if (STATUS_SELECIONADOS_AUTO.has(s)) STATUS_SELECIONADOS_AUTO.delete(s);
+      else STATUS_SELECIONADOS_AUTO.add(s);
+      c.classList.toggle('chip-active');
+      // re-renderizar as rotas automaticamente após mudança
+      renderRoutes();
+      renderExec();
+    });
+  });
 }
+
+// Botões atalho do filtro AUTOMÁTICO
+document.getElementById('btnStatusAutoTodos')?.addEventListener('click', () => {
+  STATUS_LIST.forEach(s => STATUS_SELECIONADOS_AUTO.add(s));
+  popularStatusAuto();
+  renderRoutes(); renderExec();
+});
+document.getElementById('btnStatusAutoProntos')?.addEventListener('click', () => {
+  STATUS_SELECIONADOS_AUTO.clear();
+  STATUS_LIST.forEach(s => { if (STATUS_PRONTOS.has(s)) STATUS_SELECIONADOS_AUTO.add(s); });
+  popularStatusAuto();
+  renderRoutes(); renderExec();
+});
+document.getElementById('btnStatusAutoNenhum')?.addEventListener('click', () => {
+  STATUS_SELECIONADOS_AUTO.clear();
+  popularStatusAuto();
+  renderRoutes(); renderExec();
+});
+
+function popularStatusManual(){
+  const cont = document.getElementById('statusChips');
+  if (!cont) return;
+  // contar pedidos por status
+  const contagem = {};
+  DADOS.forEach(d => { contagem[d.status] = (contagem[d.status]||0)+1; });
+  // se primeira vez: marcar só os prontos QUE EXISTEM na planilha
+  if (STATUS_SELECIONADOS.size === 0){
+    STATUS_LIST.forEach(s => { if (STATUS_PRONTOS.has(s)) STATUS_SELECIONADOS.add(s); });
+  }
+  // se nenhum dos prontos existe, marca o primeiro status disponível
+  if (STATUS_SELECIONADOS.size === 0 && STATUS_LIST.length){
+    STATUS_SELECIONADOS.add(STATUS_LIST[0]);
+  }
+  // renderizar chips
+  cont.innerHTML = STATUS_LIST.map(s => {
+    const ativo = STATUS_SELECIONADOS.has(s);
+    const n = contagem[s] || 0;
+    return `<span class="status-chip ${ativo?'chip-active':''}" data-status="${s}">${s}<span class="chip-count">${n}</span></span>`;
+  }).join('');
+  // listeners
+  cont.querySelectorAll('.status-chip').forEach(c => {
+    c.addEventListener('click', () => {
+      const s = c.dataset.status;
+      if (STATUS_SELECIONADOS.has(s)) STATUS_SELECIONADOS.delete(s);
+      else STATUS_SELECIONADOS.add(s);
+      c.classList.toggle('chip-active');
+    });
+  });
+}
+
+// botões atalho
+document.getElementById('btnStatusTodos')?.addEventListener('click', () => {
+  STATUS_LIST.forEach(s => STATUS_SELECIONADOS.add(s));
+  popularStatusManual();
+});
+document.getElementById('btnStatusProntos')?.addEventListener('click', () => {
+  STATUS_SELECIONADOS.clear();
+  STATUS_LIST.forEach(s => { if (STATUS_PRONTOS.has(s)) STATUS_SELECIONADOS.add(s); });
+  popularStatusManual();
+});
+document.getElementById('btnStatusNenhum')?.addEventListener('click', () => {
+  STATUS_SELECIONADOS.clear();
+  popularStatusManual();
+});
 
 // Atualiza TEMPO_CONFIG a partir dos campos do formulário e re-renderiza tudo
 document.getElementById('btnRecalcularTempo')?.addEventListener('click', () => {
@@ -5909,11 +6117,14 @@ document.getElementById('btnMontarManual')?.addEventListener('click', () => {
   const nome = (document.getElementById('manualNome').value || '').trim();
   const cepIniRaw = (document.getElementById('manualCepIni').value || '').replace(/\D/g,'');
   const cepFimRaw = (document.getElementById('manualCepFim').value || '').replace(/\D/g,'');
-  const statusFiltro = document.getElementById('manualStatus').value || 'TODOS';
 
   if (!nome){ alert('Dê um nome à rota.'); return; }
   if (cepIniRaw.length < 3 || cepFimRaw.length < 3){
     alert('Informe CEP inicial e final com pelo menos 3 dígitos (ex: 092 ou 09200).');
+    return;
+  }
+  if (STATUS_SELECIONADOS.size === 0){
+    alert('Selecione pelo menos um status nos chips abaixo do formulário.');
     return;
   }
   const cepIni = parseInt(cepIniRaw.padEnd(5,'0').substring(0,5), 10);
@@ -5928,13 +6139,14 @@ document.getElementById('btnMontarManual')?.addEventListener('click', () => {
     if (d.retira) return false;
     if (d.cep5 == null) return false;
     if (d.cep5 < cepIni || d.cep5 > cepFim) return false;
-    if (statusFiltro !== 'TODOS' && d.status !== statusFiltro) return false;
+    if (!STATUS_SELECIONADOS.has(d.status)) return false; // multi-status
     if (alocados.has(d.pedido)) return false; // já está em outra rota manual
     return true;
   });
 
   if (!candidatos.length){
-    alert(`Nenhum pedido LIVRE encontrado na faixa ${String(cepIni).padStart(5,'0')}–${String(cepFim).padStart(5,'0')}${statusFiltro!=='TODOS'?' com status '+statusFiltro:''}.\n\nPossíveis motivos:\n• Pedidos já estão em outra rota manual\n• Filtro de status muito restritivo\n• Faixa de CEP sem pedidos`);
+    const statusTxt = [...STATUS_SELECIONADOS].join(', ');
+    alert(`Nenhum pedido LIVRE encontrado na faixa ${String(cepIni).padStart(5,'0')}–${String(cepFim).padStart(5,'0')} com os status: ${statusTxt}.\n\nPossíveis motivos:\n• Pedidos já estão em outra rota manual\n• Filtro de status muito restritivo (marque mais chips)\n• Faixa de CEP sem pedidos`);
     return;
   }
 
@@ -5972,11 +6184,14 @@ function sugerirPedidosParaRota(rota){
   const minCep = Math.min(...cepsRota);
   const maxCep = Math.max(...cepsRota);
 
-  // candidatos: pedidos livres, com cep, não-retira
+  // candidatos: pedidos livres, com cep, não-retira, respeitando filtro de STATUS_SELECIONADOS
+  // se STATUS_SELECIONADOS estiver vazio (caso raro) ou não inicializado, considera todos
+  const usarFiltro = STATUS_SELECIONADOS && STATUS_SELECIONADOS.size > 0;
   let candidatos = DADOS.filter(d => {
     if (d.retira) return false;
     if (d.cep5 == null) return false;
     if (alocados.has(d.pedido)) return false;
+    if (usarFiltro && !STATUS_SELECIONADOS.has(d.status)) return false;
     return true;
   });
 
@@ -6232,6 +6447,7 @@ function mostrarSugestoes(rota){
             <span class="sugest-cep mono">${s.cepFmt}</span>
             <span class="sugest-client">${s.cliente||'(sem cliente)'}</span>
             <span class="sugest-cidade">${s.cidade||''}</span>
+            <span class="sugest-status" title="Status do pedido">${s.status||'—'}</span>
             <span class="sugest-categ ${mesmaCateg?'ok':'diferente'}">${mesmaCateg?'mesma categ.':'outra categ.'}</span>
             <span class="sugest-dist">${distLabel}</span>
             <span class="sugest-valor mono">${s.valor?fmtBRL(s.valor):'—'}</span>
