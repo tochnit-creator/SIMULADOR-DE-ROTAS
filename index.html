@@ -2099,6 +2099,7 @@
       <div class="brand-tag">v2.1 · SUPER ABC</div>
       <!-- botão configurações removido permanentemente -->
       <button class="settings-btn" id="btnAreasAtencao" title="Cadastrar áreas de atenção (CEPs de risco)">⚠ Áreas de Atenção</button>
+      <button class="settings-btn" id="btnAtualizarPlanilha" title="Puxar os pedidos mais recentes direto da planilha SIMULADOR DE ROTA (Google). Alt+clique para trocar a URL.">🔄 Atualizar da planilha</button>
     </div>
     <div class="hero-sub" id="heroSub">
       Sistema de roteirização inteligente por CEP. Carregue sua planilha, filtre por status,
@@ -3601,6 +3602,45 @@ function handleFile(file){
   };
   reader.readAsArrayBuffer(file);
 }
+
+// ---------- ATUALIZAR DIRETO DA PLANILHA DO GOOGLE (Apps Script Web App) ----------
+// A URL do app da web fica salva no navegador (localStorage). Na 1ª vez o sistema
+// pergunta a URL; depois é só clicar em "Atualizar da planilha". Alt+clique troca a URL.
+let SHEET_WEBAPP_URL = localStorage.getItem('sheetWebAppUrl') || "";
+
+async function atualizarDaPlanilha(silencioso){
+  let url = SHEET_WEBAPP_URL;
+  if (!url){
+    if (silencioso) return; // sem URL configurada: não tenta puxar sozinho
+    url = (prompt('Cole a URL do app da web (Apps Script) que lê a planilha SIMULADOR DE ROTA:') || '').trim();
+    if (!url) return;
+    SHEET_WEBAPP_URL = url;
+    localStorage.setItem('sheetWebAppUrl', url);
+  }
+  fileInfo.innerHTML = '<span class="loading"></span> Buscando pedidos da planilha…';
+  try{
+    const resp = await fetch(url, { method:'GET' });
+    const json = await resp.json();
+    if (json && json.ok === false) throw new Error(json.error || 'acesso negado');
+    const values = (json && json.values) ? json.values : json;
+    if (!Array.isArray(values) || !values.length) throw new Error('a planilha voltou vazia');
+    processData(values);
+    const quando = (json && json.updated) ? ' · atualizado ' + json.updated : '';
+    fileInfo.innerHTML = '✓ ' + DADOS.length + ' pedidos puxados da planilha' + quando;
+    uploadZone.classList.add('has-file');
+  }catch(err){
+    fileInfo.innerHTML = '<span style="color:var(--danger)">Erro ao atualizar: ' + err.message + '</span>';
+    console.error('atualizarDaPlanilha:', err);
+  }
+}
+
+document.getElementById('btnAtualizarPlanilha')?.addEventListener('click', (e)=>{
+  if (e.altKey){ localStorage.removeItem('sheetWebAppUrl'); SHEET_WEBAPP_URL = ''; }
+  atualizarDaPlanilha(false);
+});
+
+// puxa sozinho ao abrir a página, se já houver uma URL configurada
+window.addEventListener('load', ()=> atualizarDaPlanilha(true));
 
 // ---------- PROCESSAMENTO ----------
 function processData(aoa){
