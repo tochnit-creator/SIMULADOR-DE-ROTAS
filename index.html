@@ -1187,6 +1187,39 @@
     .sugest-cep, .sugest-cidade, .sugest-categ, .sugest-dist, .sugest-status{display:none}
   }
 
+  /* abas Sugeridos / Manual */
+  .sugest-tabs{display:flex;gap:6px;margin-bottom:12px}
+  .sugest-tab{
+    padding:7px 16px;border-radius:8px 8px 0 0;
+    font-size:12px;font-weight:600;cursor:pointer;user-select:none;
+    background:rgba(255,255,255,0.03);color:var(--ink-mute);
+    border:1px solid var(--line);border-bottom:none;
+    transition:all .15s;
+  }
+  .sugest-tab:hover{color:var(--ink-dim)}
+  .sugest-tab.ativa{background:rgba(212,255,63,0.10);color:var(--accent);border-color:var(--accent)}
+  .sugest-toolbar{
+    display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;
+  }
+  .sugest-busca{
+    flex:1 1 220px;display:flex;align-items:center;gap:7px;
+    background:rgba(0,0,0,0.25);border:1px solid var(--line);border-radius:8px;
+    padding:6px 11px;
+  }
+  .sugest-busca svg{flex:0 0 auto;opacity:0.55;color:var(--ink-dim)}
+  .sugest-busca input{
+    flex:1;background:none;border:none;outline:none;color:var(--ink);
+    font-size:12px;font-family:inherit;min-width:0;
+  }
+  .sugest-busca input::placeholder{color:var(--ink-mute)}
+  .sugest-ordenar{
+    background:rgba(0,0,0,0.25);border:1px solid var(--line);border-radius:8px;
+    color:var(--ink-dim);font-size:11.5px;padding:7px 10px;cursor:pointer;
+    font-family:inherit;
+  }
+  .sugest-count{font-size:11px;color:var(--ink-mute)}
+  .sugest-row.sel{background:rgba(212,255,63,0.07)}
+
   .routes-toolbar{
     display:flex;justify-content:space-between;align-items:center;
     flex-wrap:wrap;gap:14px;
@@ -6487,6 +6520,13 @@ function atualizarBotaoUnificar(){
   btn.disabled = _rotasParaUnificar.size < 2;
 }
 
+// ===== estado da seleção de pedidos (compartilhado entre as abas Sugeridos / Manual) =====
+const _selSug = {};       // rotaId -> Set(pedido) selecionados
+const _abaSug = {};       // rotaId -> 'sugeridos' | 'manual'
+const _ordSug = {};       // rotaId -> chave de ordenação (aba manual)
+const _buscaSug = {};     // rotaId -> texto da busca (aba manual)
+const _mapaValSug = {};   // rotaId -> { pedido: valor }
+
 function mostrarSugestoes(rota){
   const cont = document.getElementById('sugest-' + rota.id);
   if (!cont) return;
@@ -6495,64 +6535,214 @@ function mostrarSugestoes(rota){
     cont.innerHTML = '';
     return;
   }
-  const sugestoes = sugerirPedidosParaRota(rota);
+  if (!_selSug[rota.id]) _selSug[rota.id] = new Set();
+  if (!_abaSug[rota.id]) _abaSug[rota.id] = 'sugeridos';
+  if (!_ordSug[rota.id]) _ordSug[rota.id] = 'cepAsc';
+  if (_buscaSug[rota.id] == null) _buscaSug[rota.id] = '';
+  cont.classList.remove('hidden');
+  renderPainelSug(rota);
+}
+
+// pool completo: todos os pedidos livres (não alocados, com CEP, não-retira), respeitando o filtro de status
+function listarTodosCandidatos(rota){
+  const alocados = getPedidosAlocados();
+  const cepsRota = rota.pedidos.flatMap(p => p.pedidosAgrupados ? p.pedidosAgrupados.map(x=>x.cep5) : [p.cep5]).filter(Boolean);
+  const minCep = cepsRota.length ? Math.min(...cepsRota) : 0;
+  const maxCep = cepsRota.length ? Math.max(...cepsRota) : 0;
+  const usarFiltro = STATUS_SELECIONADOS && STATUS_SELECIONADOS.size > 0;
+  let cands = DADOS.filter(d => {
+    if (d.retira) return false;
+    if (d.cep5 == null) return false;
+    if (alocados.has(d.pedido)) return false;
+    if (usarFiltro && !STATUS_SELECIONADOS.has(d.status)) return false;
+    return true;
+  });
+  cands.forEach(c => {
+    let distancia;
+    if (c.cep5 < minCep) distancia = minCep - c.cep5;
+    else if (c.cep5 > maxCep) distancia = c.cep5 - maxCep;
+    else distancia = 0;
+    c._dist = distancia;
+  });
+  return cands;
+}
+
+function _linhaSug(s, rota, checked){
+  const mesmaCateg = s.tipoZona === rota.tipo;
+  const distLabel = s._dist === 0 ? 'dentro da faixa' : `+${s._dist} CEPs`;
+  return `
+    <label class="sugest-row ${!mesmaCateg?'sugest-categ-diferente':''} ${checked?'sel':''}">
+      <input type="checkbox" class="chk-sugest" data-pedido="${s.pedido}" data-valor="${s.valor||0}" ${checked?'checked':''} />
+      <span class="sugest-cep mono">${s.cepFmt}</span>
+      <span class="sugest-client">${s.cliente||'(sem cliente)'}</span>
+      <span class="sugest-cidade">${s.cidade||''}</span>
+      <span class="sugest-status" title="Status do pedido">${s.status||'—'}</span>
+      <span class="sugest-categ ${mesmaCateg?'ok':'diferente'}">${mesmaCateg?'mesma categ.':'outra categ.'}</span>
+      <span class="sugest-dist">${distLabel}</span>
+      <span class="sugest-valor mono">${s.valor?fmtBRL(s.valor):'—'}</span>
+    </label>`;
+}
+
+function renderPainelSug(rota){
+  const cont = document.getElementById('sugest-' + rota.id);
+  if (!cont) return;
   const minZ = getMinimo(rota.tipo);
   const totAtual = rota.pedidos.reduce((a,b)=>a+(b.valorTotal!=null?b.valorTotal:(b.valor||0)),0);
   const faltaMin = minZ - totAtual;
 
-  if (!sugestoes.length){
+  const todos = listarTodosCandidatos(rota);
+  _mapaValSug[rota.id] = {};
+  todos.forEach(c => { _mapaValSug[rota.id][c.pedido] = c.valor||0; });
+
+  if (!todos.length){
     cont.innerHTML = '<div class="sugest-empty">Não há pedidos livres disponíveis pra agregar nesta rota.</div>';
-    cont.classList.remove('hidden');
     return;
   }
 
+  const aba = _abaSug[rota.id];
+  const sel = _selSug[rota.id];
+
+  let corpo = '';
+  if (aba === 'sugeridos'){
+    const sugeridos = sugerirPedidosParaRota(rota);
+    corpo = `
+      <div class="sugest-head">
+        💡 <strong>Pedidos sugeridos pra atingir o mínimo</strong> — priorizando mesma categoria (${MINIMOS_LABEL[rota.tipo]||rota.tipo}) e proximidade de CEP.
+        Faltam <strong style="color:var(--danger)">${fmtBRL(faltaMin)}</strong>. Marque os que quer adicionar e clique no botão abaixo.
+      </div>
+      <div class="sugest-list" id="sugest-list-${rota.id}">
+        ${sugeridos.map(s => _linhaSug(s, rota, sel.has(s.pedido))).join('')}
+      </div>`;
+  } else {
+    corpo = `
+      <div class="sugest-head">
+        ✋ <strong>Seleção manual</strong> — todos os pedidos livres (${todos.length}), inclusive fora da sugestão. Pesquise, ordene e marque o que quiser.
+      </div>
+      <div class="sugest-toolbar">
+        <div class="sugest-busca">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="busca-${rota.id}" placeholder="Pesquisar CEP, cliente ou pedido…" value="${(_buscaSug[rota.id]||'').replace(/"/g,'&quot;')}" />
+        </div>
+        <select class="sugest-ordenar" id="ord-${rota.id}">
+          <option value="cepAsc">CEP — menor → maior</option>
+          <option value="cepDesc">CEP — maior → menor</option>
+          <option value="clienteAsc">Cliente — A → Z</option>
+          <option value="clienteDesc">Cliente — Z → A</option>
+          <option value="valorDesc">Valor — maior → menor</option>
+          <option value="valorAsc">Valor — menor → maior</option>
+          <option value="sug">Sugeridos primeiro</option>
+        </select>
+        <span class="sugest-count" id="cnt-${rota.id}"></span>
+      </div>
+      <div class="sugest-list" id="sugest-list-${rota.id}"></div>`;
+  }
+
   cont.innerHTML = `
-    <div class="sugest-head">
-      💡 <strong>Pedidos sugeridos pra atingir o mínimo</strong> — priorizando mesma categoria (${MINIMOS_LABEL[rota.tipo]||rota.tipo}) e proximidade de CEP.
-      Faltam <strong style="color:var(--danger)">${fmtBRL(faltaMin)}</strong>. Marque os que quer adicionar e clique no botão abaixo.
+    <div class="sugest-tabs">
+      <div class="sugest-tab ${aba==='sugeridos'?'ativa':''}" data-aba="sugeridos">💡 Sugeridos</div>
+      <div class="sugest-tab ${aba==='manual'?'ativa':''}" data-aba="manual">✋ Manual</div>
     </div>
-    <div class="sugest-list">
-      ${sugestoes.map(s => {
-        const mesmaCateg = s.tipoZona === rota.tipo;
-        const distLabel = s._dist === 0 ? 'dentro da faixa' : `+${s._dist} CEPs`;
-        return `
-          <label class="sugest-row ${!mesmaCateg?'sugest-categ-diferente':''}">
-            <input type="checkbox" class="chk-sugest" data-pedido="${s.pedido}" data-valor="${s.valor||0}" />
-            <span class="sugest-cep mono">${s.cepFmt}</span>
-            <span class="sugest-client">${s.cliente||'(sem cliente)'}</span>
-            <span class="sugest-cidade">${s.cidade||''}</span>
-            <span class="sugest-status" title="Status do pedido">${s.status||'—'}</span>
-            <span class="sugest-categ ${mesmaCateg?'ok':'diferente'}">${mesmaCateg?'mesma categ.':'outra categ.'}</span>
-            <span class="sugest-dist">${distLabel}</span>
-            <span class="sugest-valor mono">${s.valor?fmtBRL(s.valor):'—'}</span>
-          </label>`;
-      }).join('')}
-    </div>
+    ${corpo}
     <div class="sugest-footer">
-      <div class="sugest-totalizador">Selecionados: <strong id="sumSelecionados-${rota.id}">${fmtBRL(0)}</strong></div>
+      <div class="sugest-totalizador">Selecionados: <strong id="sumSelecionados-${rota.id}">${fmtBRL(0)}</strong> <span id="qtdSel-${rota.id}" class="sugest-count"></span></div>
       <button class="route-action-btn primary" data-action-sug="adicionar" data-rid="${rota.id}">+ Adicionar selecionados à rota</button>
     </div>
   `;
-  cont.classList.remove('hidden');
 
-  // listeners das checkboxes pra atualizar totalizador
-  const checkboxes = cont.querySelectorAll('.chk-sugest');
-  const sumEl = document.getElementById('sumSelecionados-' + rota.id);
-  const recalcTotal = () => {
-    let soma = 0;
-    checkboxes.forEach(c => { if (c.checked) soma += parseFloat(c.dataset.valor) || 0; });
-    sumEl.textContent = fmtBRL(soma);
-    // se já ultrapassou o mínimo, destaca
-    sumEl.style.color = soma >= faltaMin ? 'var(--ok)' : 'var(--ink)';
-  };
-  checkboxes.forEach(c => c.addEventListener('change', recalcTotal));
+  // troca de aba
+  cont.querySelectorAll('.sugest-tab').forEach(t => t.addEventListener('click', () => {
+    _abaSug[rota.id] = t.dataset.aba;
+    renderPainelSug(rota);
+  }));
 
-  // botão adicionar
-  cont.querySelector('[data-action-sug="adicionar"]').addEventListener('click', () => {
-    const escolhidos = [...checkboxes].filter(c=>c.checked).map(c=>c.dataset.pedido);
-    if (!escolhidos.length){ alert('Marque pelo menos um pedido.'); return; }
-    adicionarPedidosARota(rota.id, escolhidos);
+  // aba manual: lista + busca + ordenação
+  if (aba === 'manual'){
+    const ordEl = document.getElementById('ord-' + rota.id);
+    if (ordEl) ordEl.value = _ordSug[rota.id];
+    renderListaManual(rota);
+    const buscaEl = document.getElementById('busca-' + rota.id);
+    if (buscaEl) buscaEl.addEventListener('input', () => { _buscaSug[rota.id] = buscaEl.value; renderListaManual(rota); });
+    if (ordEl) ordEl.addEventListener('change', () => { _ordSug[rota.id] = ordEl.value; renderListaManual(rota); });
+  }
+
+  ligarListenersSug(rota, faltaMin);
+  atualizarTotalSug(rota, faltaMin);
+}
+
+function renderListaManual(rota){
+  const lista = document.getElementById('sugest-list-' + rota.id);
+  if (!lista) return;
+  let todos = listarTodosCandidatos(rota);
+  const sel = _selSug[rota.id];
+  const termo = (_buscaSug[rota.id]||'').trim().toLowerCase();
+  const termoNum = termo.replace(/\D/g,'');
+  if (termo){
+    todos = todos.filter(d => {
+      const cli = (d.cliente||'').toLowerCase();
+      const ped = (d.pedido||'').toLowerCase();
+      const cepd = String(d.cep||'').replace(/\D/g,'');
+      return cli.includes(termo) || ped.includes(termo) || (termoNum && cepd.includes(termoNum));
+    });
+  }
+  const ord = _ordSug[rota.id];
+  const sugSet = new Set(sugerirPedidosParaRota(rota).map(s=>s.pedido));
+  todos.sort((a,b)=>{
+    switch(ord){
+      case 'cepAsc':      return (a.cep5||0)-(b.cep5||0);
+      case 'cepDesc':     return (b.cep5||0)-(a.cep5||0);
+      case 'clienteAsc':  return (a.cliente||'').localeCompare(b.cliente||'','pt');
+      case 'clienteDesc': return (b.cliente||'').localeCompare(a.cliente||'','pt');
+      case 'valorDesc':   return (b.valor||0)-(a.valor||0);
+      case 'valorAsc':    return (a.valor||0)-(b.valor||0);
+      case 'sug':         return ((sugSet.has(b.pedido)?1:0)-(sugSet.has(a.pedido)?1:0)) || (a._dist-b._dist);
+      default: return 0;
+    }
   });
+  lista.innerHTML = todos.length
+    ? todos.map(s => _linhaSug(s, rota, sel.has(s.pedido))).join('')
+    : '<div class="sugest-empty">Nenhum pedido encontrado pra essa busca.</div>';
+  const cnt = document.getElementById('cnt-' + rota.id);
+  if (cnt) cnt.textContent = todos.length + ' pedido' + (todos.length!==1?'s':'');
+  const faltaMin = getMinimo(rota.tipo) - rota.pedidos.reduce((a,b)=>a+(b.valorTotal!=null?b.valorTotal:(b.valor||0)),0);
+  ligarListenersSug(rota, faltaMin);
+  atualizarTotalSug(rota, faltaMin);
+}
+
+function ligarListenersSug(rota, faltaMin){
+  const cont = document.getElementById('sugest-' + rota.id);
+  if (!cont) return;
+  const sel = _selSug[rota.id];
+  cont.querySelectorAll('.chk-sugest').forEach(c => {
+    c.onchange = () => {
+      if (c.checked) sel.add(c.dataset.pedido); else sel.delete(c.dataset.pedido);
+      const row = c.closest('.sugest-row');
+      if (row) row.classList.toggle('sel', c.checked);
+      atualizarTotalSug(rota, faltaMin);
+    };
+  });
+  const btn = cont.querySelector('[data-action-sug="adicionar"]');
+  if (btn){
+    btn.onclick = () => {
+      const escolhidos = [...sel];
+      if (!escolhidos.length){ alert('Marque pelo menos um pedido.'); return; }
+      _selSug[rota.id] = new Set();
+      adicionarPedidosARota(rota.id, escolhidos);
+    };
+  }
+}
+
+function atualizarTotalSug(rota, faltaMin){
+  const sel = _selSug[rota.id] || new Set();
+  const mapa = _mapaValSug[rota.id] || {};
+  let soma = 0;
+  sel.forEach(p => { soma += mapa[p] || 0; });
+  const sumEl = document.getElementById('sumSelecionados-' + rota.id);
+  if (sumEl){
+    sumEl.textContent = fmtBRL(soma);
+    sumEl.style.color = (faltaMin > 0 && soma >= faltaMin) ? 'var(--ok)' : 'var(--ink)';
+  }
+  const qtdEl = document.getElementById('qtdSel-' + rota.id);
+  if (qtdEl) qtdEl.textContent = sel.size ? `(${sel.size} pedido${sel.size!==1?'s':''})` : '';
 }
 
 function adicionarPedidosARota(rotaId, pedidosNums){
