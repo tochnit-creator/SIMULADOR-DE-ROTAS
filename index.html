@@ -3853,6 +3853,17 @@ function processData(aoa){
   // Status list
   STATUS_LIST = [...new Set(DADOS.map(d=>d.status))].sort();
 
+  // busca em segundo plano as coordenadas precisas dos CEPs (não trava a tela).
+  // Quando terminar, redesenha os mini-mapas pra ficarem na rua/porta certa.
+  try {
+    const cepsUnicos = [...new Set(DADOS.map(d=>d.cep).filter(Boolean))];
+    enriquecerCEPs(cepsUnicos).then(res => {
+      if (res && res.comCoord > 0 && typeof renderPoolRotasManuais === 'function'){
+        try { renderPoolRotasManuais(); } catch(e){}
+      }
+    }).catch(()=>{});
+  } catch(e){}
+
   // === VALIDAÇÃO antes de renderizar ===
   const validacao = validarDados();
   if (validacao.issues.length > 0){
@@ -4620,7 +4631,10 @@ function renderRoutes(){
       const rota = window._rotasAtuais[idx];
       if (!rota) return;
       const action = btn.dataset.action;
-      if (action === 'pdf') gerarPDFRomaneio([rota]);
+      if (action === 'pdf'){
+        const _t = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span>⏳</span> Gerando…';
+        Promise.resolve(gerarPDFRomaneio([rota])).finally(()=>{ btn.disabled=false; btn.innerHTML=_t; });
+      }
       else if (action === 'csv') exportarCSVRota(rota);
       else if (action === 'copy') copiarListaRota(rota, btn);
     });
@@ -5309,6 +5323,75 @@ function getCoordsFromCep(cep5){
   return null;
 }
 
+// ===== COORDENADAS PRECISAS POR CEP (porta/rua exata) =====
+// Busca as coordenadas reais de cada CEP na BrasilAPI (gratuita, sem chave) e
+// guarda no navegador (localStorage). Na 1ª vez busca; depois é instantâneo.
+// Se um CEP não tiver coordenada, o sistema usa o ponto do bairro (getCoordsFromCep),
+// então NUNCA quebra.
+let CEP_PRECISO = {}; // "01234567" -> {lat, lng, rua, bairro, cidade} | {none:true}
+try { CEP_PRECISO = JSON.parse(localStorage.getItem('cepPreciso') || '{}'); } catch(e){ CEP_PRECISO = {}; }
+
+function _cepKey(cep){ return (cep == null ? '' : String(cep)).replace(/\D/g,'').slice(0,8); }
+
+function salvarCepPreciso(){
+  try { localStorage.setItem('cepPreciso', JSON.stringify(CEP_PRECISO)); } catch(e){}
+}
+
+// retorna a MELHOR coordenada disponível: precisa (porta) se já buscada, senão a do bairro
+function getCoordsMelhor(cep, cep5){
+  const k = _cepKey(cep);
+  const p = CEP_PRECISO[k];
+  if (p && p.lat != null && isFinite(p.lat) && isFinite(p.lng)){
+    return { lat: p.lat, lng: p.lng, precisa: true, rua: p.rua, bairro: p.bairro, cidade: p.cidade };
+  }
+  const g = getCoordsFromCep(cep5);
+  return g ? { lat: g.lat, lng: g.lng, precisa: false, nome: g.nome } : null;
+}
+
+// busca em lote os CEPs ainda não conhecidos (com cache + concorrência limitada)
+async function enriquecerCEPs(ceps, onProgress){
+  const pendentes = [...new Set((ceps||[]).map(_cepKey).filter(k => k.length === 8 && !(k in CEP_PRECISO)))];
+  if (!pendentes.length) return { buscados:0, comCoord:0 };
+  let i = 0, comCoord = 0, feitos = 0;
+  const CONC = 4; // 4 buscas em paralelo (educado com a API)
+
+  async function buscaUm(cep){
+    // 1) BrasilAPI v2 (tem coordenadas em boa parte dos CEPs urbanos)
+    try {
+      const r = await fetch('https://brasilapi.com.br/api/cep/v2/' + cep, { cache:'force-cache' });
+      if (r.ok){
+        const j = await r.json();
+        const c = j && j.location && j.location.coordinates;
+        if (c && c.latitude && c.longitude){
+          CEP_PRECISO[cep] = { lat:+c.latitude, lng:+c.longitude, rua:j.street||'', bairro:j.neighborhood||'', cidade:j.city||'' };
+          comCoord++;
+          return;
+        }
+        // sem coordenada, mas guarda rua/bairro (útil pra exibir) e marca como "sem coord precisa"
+        CEP_PRECISO[cep] = { none:true, rua:(j&&j.street)||'', bairro:(j&&j.neighborhood)||'', cidade:(j&&j.city)||'' };
+        return;
+      }
+    } catch(e){ /* rede/bloqueio: cai pro fallback abaixo */ }
+    // marca como tentado/sem coord pra não ficar rebuscando a cada vez
+    CEP_PRECISO[cep] = { none:true };
+  }
+
+  async function worker(){
+    while (i < pendentes.length){
+      const cep = pendentes[i++];
+      await buscaUm(cep);
+      feitos++;
+      if (onProgress) onProgress(feitos, pendentes.length);
+    }
+  }
+  const workers = [];
+  for (let w = 0; w < Math.min(CONC, pendentes.length); w++) workers.push(worker());
+  await Promise.all(workers);
+  salvarCepPreciso();
+  return { buscados: pendentes.length, comCoord };
+}
+
+
 let heatMap = null;
 let heatLayer = null;
 let activeMetric = 'valor'; // valor | pedidos | ticket | rotas
@@ -5486,7 +5569,7 @@ function dataAtualFmt(){
 
 // === PDF DO ROMANEIO ===
 // recebe array de rotas; gera 1 página por rota num único PDF
-function gerarPDFRomaneio(rotas){
+async function gerarPDFRomaneio(rotas){
   if (!window.jspdf || !window.jspdf.jsPDF){
     alert('Biblioteca de PDF ainda não carregou. Aguarde 2 segundos e tente de novo.');
     return;
@@ -5495,6 +5578,20 @@ function gerarPDFRomaneio(rotas){
     alert('Nenhuma rota disponível para exportar.');
     return;
   }
+
+  // garante coordenadas precisas (porta) dos CEPs dessas rotas antes de desenhar o QR.
+  // se a internet falhar, segue com o ponto do bairro — nunca trava.
+  try {
+    if (typeof enriquecerCEPs === 'function'){
+      const ceps = [];
+      rotas.forEach(r => (r.pedidos||[]).forEach(p => {
+        if (p.pedidosAgrupados) p.pedidosAgrupados.forEach(x => ceps.push(x.cep));
+        else ceps.push(p.cep);
+      }));
+      await enriquecerCEPs(ceps);
+    }
+  } catch(e){}
+
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
   const now = dataAtualFmt();
@@ -5597,11 +5694,11 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
     if (typeof qrcode !== 'undefined'){
       const BASE_LL = '-23.6680,-46.4615'; // base (Mauá)
       const paradas = peds.map(p => {
-        const c = (typeof getCoordsFromCep === 'function') ? getCoordsFromCep(p.cep5) : null;
+        const c = (typeof getCoordsMelhor === 'function') ? getCoordsMelhor(p.cep, p.cep5) : null;
         if (c && isFinite(c.lat) && isFinite(c.lng)){
-          return c.lat.toFixed(5) + ',' + c.lng.toFixed(5); // coordenada exata
+          return c.lat.toFixed(5) + ',' + c.lng.toFixed(5); // coordenada (precisa se disponível)
         }
-        // reserva: CEP + cidade + UF (caso rara parada sem coordenada na base)
+        // reserva final: CEP + cidade + UF
         const cep = (p.cepFmt || p.cep || '').toString().trim();
         if (!cep) return '';
         const cidade = (p.cidade || '').toString().trim();
@@ -6531,14 +6628,14 @@ function initMiniMapa(rota){
   const peds = rota.pedidos || [];
 
   peds.forEach((p, i) => {
-    const c = getCoordsFromCep(p.cep5);
+    const c = (typeof getCoordsMelhor === 'function') ? getCoordsMelhor(p.cep, p.cep5) : getCoordsFromCep(p.cep5);
     if (!c) return;
     const key = `${c.lat.toFixed(4)},${c.lng.toFixed(4)}`;
     let lat = c.lat, lng = c.lng;
     const jaTem = cont[key] || 0;
     if (jaTem){
-      // espalha em espiral curta ao redor do ponto da região (CEPs do mesmo bairro)
-      const ang = jaTem * 1.1, raio = 0.0035 * (1 + Math.floor(jaTem/8));
+      // espalha em espiral curta só quando vários pontos caem EXATAMENTE no mesmo lugar
+      const ang = jaTem * 1.1, raio = 0.0008 * (1 + Math.floor(jaTem/8));
       lat += Math.sin(ang) * raio;
       lng += Math.cos(ang) * raio;
     }
@@ -6557,7 +6654,9 @@ function initMiniMapa(rota){
       <b>${p.cliente || '(sem cliente)'}</b>
       <div class="pop-row"><span>Parada</span><span>${ordem} de ${peds.length}</span></div>
       <div class="pop-row"><span>CEP</span><span>${p.cepFmt || p.cep || '—'}</span></div>
+      ${c.precisa && c.rua ? `<div class="pop-row"><span>Rua</span><span>${c.rua}</span></div>` : ''}
       <div class="pop-row"><span>Cidade</span><span>${p.cidade || '—'}</span></div>
+      <div class="pop-row"><span>Local no mapa</span><span style="color:${c.precisa?'#7fe05a':'#a8a89d'}">${c.precisa?'porta/rua exata':'centro do bairro'}</span></div>
       <div class="pop-row"><span>Valor</span><span>${p.valor?fmtBRL(p.valor):'—'}</span></div>
       ${pesado ? '<div class="pop-row"><span>Peso</span><span style="color:#ff7847;font-weight:700">PESADO</span></div>' : ''}
     `);
@@ -6706,7 +6805,10 @@ function attachListenersRotaPool(rota){
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const acao = btn.dataset.action;
-      if (acao === 'pdf') gerarPDFRomaneio([rota]);
+      if (acao === 'pdf'){
+        const _t = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span>⏳</span> Gerando…';
+        Promise.resolve(gerarPDFRomaneio([rota])).finally(()=>{ btn.disabled=false; btn.innerHTML=_t; });
+      }
       else if (acao === 'csv') exportarCSVRota(rota);
       else if (acao === 'remover'){
         if (confirm(`Remover a rota "${rota.nome}"? Os pedidos voltam a ficar livres.`)){
