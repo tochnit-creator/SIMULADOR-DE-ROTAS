@@ -5550,6 +5550,43 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
     } catch(e){}
   }
 
+  // ===================================================================
+  // QR DA ROTA COMPLETA (topo direito) — abre o Google Maps com o percurso
+  // ligando a base a todas as paradas, na ordem em que serão visitadas.
+  // ===================================================================
+  try {
+    if (typeof qrcode !== 'undefined'){
+      const origem = (APP_CONFIG.endereco || 'Av. Guaraciaba 313, Mauá-SP, 09370-840').trim();
+      const paradasCep = peds
+        .map(p => (p.cepFmt || p.cep || '').toString().trim())
+        .filter(Boolean);
+      if (paradasCep.length){
+        const segmentos = [origem, ...paradasCep].map(s => encodeURIComponent(s));
+        const rotaUrl = 'https://www.google.com/maps/dir/' + segmentos.join('/');
+        const qrRota = qrcode(0, 'L'); // EC baixo = mais capacidade p/ muitos pontos
+        qrRota.addData(rotaUrl);
+        qrRota.make();
+        const qrDataUrl = qrRota.createDataURL(4, 0);
+        const qrSize = 22;
+        const qrX = PW - M - 3 - qrSize;
+        const qrYtop = M + 3;
+        // moldura clarinha
+        doc.setDrawColor(...COR_LINE_SOFT);
+        doc.setLineWidth(0.3);
+        doc.rect(qrX - 1.5, qrYtop - 1.5, qrSize + 3, qrSize + 7.5);
+        doc.addImage(qrDataUrl, 'PNG', qrX, qrYtop, qrSize, qrSize);
+        doc.setFont('helvetica','bold');
+        doc.setFontSize(5.6);
+        doc.setTextColor(...COR_INK_DIM);
+        doc.text('ROTA NO MAPA', qrX + qrSize/2, qrYtop + qrSize + 2.2, {align:'center'});
+        doc.setFont('helvetica','normal');
+        doc.setFontSize(5);
+        doc.setTextColor(...COR_INK_MUTE);
+        doc.text('aponte a câmera · ' + paradasCep.length + ' paradas', qrX + qrSize/2, qrYtop + qrSize + 4.6, {align:'center'});
+      }
+    }
+  } catch(e){}
+
   // Nome empresa centralizado
   doc.setTextColor(...COR_INK);
   doc.setFont('helvetica','bold');
@@ -5720,11 +5757,14 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
     if (riscoOf){
       nomeCliente += `\n>> RISCO ${riscoOf.label}: ${riscoOf.ocorrencias} ocorrências SSP-SP (${riscoOf.bairro}, ${riscoOf.cidade})`;
     }
-    const obs = p.enderecoExtraido || p.obsLimpa || '';
-    const obsTruncada = obs ? (obs.length > 90 ? obs.substring(0,88)+'…' : obs) : '';
-    const prefixoObs = p.temObsEndereco ? '>> ENTREGAR EM: ' : (obsTruncada ? 'OBS: ' : '');
+    // A observação genérica do pedido (ex.: "complemento", "consulta de estoque")
+    // NÃO entra mais no romaneio. Única exceção: quando a observação contém um
+    // endereço de entrega diferente — esse trecho fica, pois é crítico pra não errar o local.
     let clienteCompleto = nomeCliente;
-    if (obsTruncada) clienteCompleto += '\n' + prefixoObs + obsTruncada;
+    if (p.temObsEndereco && p.enderecoExtraido){
+      const endTrunc = p.enderecoExtraido.length > 90 ? p.enderecoExtraido.substring(0,88)+'…' : p.enderecoExtraido;
+      clienteCompleto += '\n>> ENTREGAR EM: ' + endTrunc;
+    }
     const colPedido = p.ehAgrupada
       ? p.pedidosNumeros.join('\n')
       : (p.pedido || '');
