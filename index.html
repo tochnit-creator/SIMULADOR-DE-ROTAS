@@ -5590,23 +5590,26 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
   // ===================================================================
   // QR DA ROTA COMPLETA (topo direito) — abre o Google Maps com o percurso
   // ligando a base a todas as paradas, na ordem em que serão visitadas.
+  // Usamos COORDENADAS (lat,lng) de cada parada: o Maps sempre aceita coordenada,
+  // então nunca dá "lugar não encontrado" (diferente de CEP em texto).
   // ===================================================================
   try {
     if (typeof qrcode !== 'undefined'){
-      const origem = (APP_CONFIG.endereco || 'Av. Guaraciaba 313, Mauá-SP, 09370-840').trim();
-      // Monta cada parada como "CEP, Cidade, SP, Brasil" — CEP sozinho às vezes
-      // não é reconhecido pelo Maps (vira "lugar não encontrado"). Com cidade + UF resolve.
-      const paradasCep = peds
-        .map(p => {
-          const cep = (p.cepFmt || p.cep || '').toString().trim();
-          if (!cep) return '';
-          const cidade = (p.cidade || '').toString().trim();
-          return cidade ? `${cep}, ${cidade}, SP` : `${cep}, SP`;
-        })
-        .filter(Boolean);
-      if (paradasCep.length){
-        const segmentos = [origem, ...paradasCep].map(s => encodeURIComponent(s));
-        const rotaUrl = 'https://www.google.com/maps/dir/' + segmentos.join('/');
+      const BASE_LL = '-23.6680,-46.4615'; // base (Mauá)
+      const paradas = peds.map(p => {
+        const c = (typeof getCoordsFromCep === 'function') ? getCoordsFromCep(p.cep5) : null;
+        if (c && isFinite(c.lat) && isFinite(c.lng)){
+          return c.lat.toFixed(5) + ',' + c.lng.toFixed(5); // coordenada exata
+        }
+        // reserva: CEP + cidade + UF (caso rara parada sem coordenada na base)
+        const cep = (p.cepFmt || p.cep || '').toString().trim();
+        if (!cep) return '';
+        const cidade = (p.cidade || '').toString().trim();
+        return cidade ? `${cep}, ${cidade}, SP` : `${cep}, SP`;
+      }).filter(Boolean);
+      if (paradas.length){
+        const segmentos = [BASE_LL, ...paradas, BASE_LL].map(s => encodeURIComponent(s));
+        const rotaUrl = 'https://www.google.com/maps/dir/' + segmentos.join('/') + '?travelmode=driving';
         const qrRota = qrcode(0, 'L'); // EC baixo = mais capacidade p/ muitos pontos
         qrRota.addData(rotaUrl);
         qrRota.make();
@@ -5626,7 +5629,7 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
         doc.setFont('helvetica','normal');
         doc.setFontSize(5);
         doc.setTextColor(...COR_INK_MUTE);
-        doc.text('aponte a câmera · ' + paradasCep.length + ' paradas', qrX + qrSize/2, qrYtop + qrSize + 4.6, {align:'center'});
+        doc.text('aponte a câmera · ' + paradas.length + ' paradas', qrX + qrSize/2, qrYtop + qrSize + 4.6, {align:'center'});
       }
     }
   } catch(e){}
