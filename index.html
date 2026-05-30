@@ -5324,12 +5324,21 @@ function getCoordsFromCep(cep5){
 }
 
 // ===== COORDENADAS PRECISAS POR CEP (porta/rua exata) =====
-// Busca as coordenadas reais de cada CEP na BrasilAPI (gratuita, sem chave) e
+// Busca as coordenadas reais de cada CEP (AwesomeAPI, gratuita e sem chave) e
 // guarda no navegador (localStorage). Na 1ª vez busca; depois é instantâneo.
 // Se um CEP não tiver coordenada, o sistema usa o ponto do bairro (getCoordsFromCep),
 // então NUNCA quebra.
+const CEP_CACHE_VER = 'v2-awesome'; // muda quando troca a fonte -> descarta cache velho e rebusca
 let CEP_PRECISO = {}; // "01234567" -> {lat, lng, rua, bairro, cidade} | {none:true}
-try { CEP_PRECISO = JSON.parse(localStorage.getItem('cepPreciso') || '{}'); } catch(e){ CEP_PRECISO = {}; }
+try {
+  if (localStorage.getItem('cepPrecisoVer') === CEP_CACHE_VER){
+    CEP_PRECISO = JSON.parse(localStorage.getItem('cepPreciso') || '{}');
+  } else {
+    CEP_PRECISO = {}; // fonte mudou: zera pra rebuscar com a base nova
+    localStorage.setItem('cepPrecisoVer', CEP_CACHE_VER);
+    localStorage.removeItem('cepPreciso');
+  }
+} catch(e){ CEP_PRECISO = {}; }
 
 function _cepKey(cep){ return (cep == null ? '' : String(cep)).replace(/\D/g,'').slice(0,8); }
 
@@ -5356,9 +5365,21 @@ async function enriquecerCEPs(ceps, onProgress){
   const CONC = 4; // 4 buscas em paralelo (educado com a API)
 
   async function buscaUm(cep){
-    // 1) BrasilAPI v2 (tem coordenadas em boa parte dos CEPs urbanos)
+    // 1) AwesomeAPI — gratuita, sem chave, retorna lat/lng direto (boa cobertura urbana)
     try {
-      const r = await fetch('https://brasilapi.com.br/api/cep/v2/' + cep, { cache:'force-cache' });
+      const r = await fetch('https://cep.awesomeapi.com.br/json/' + cep);
+      if (r.ok){
+        const j = await r.json();
+        if (j && j.lat && j.lng && !j.error){
+          CEP_PRECISO[cep] = { lat:+j.lat, lng:+j.lng, rua:j.address||j.address_name||'', bairro:j.neighborhood||'', cidade:j.city||'' };
+          comCoord++;
+          return;
+        }
+      }
+    } catch(e){ /* segue pro próximo */ }
+    // 2) BrasilAPI v2 — reserva (tem coordenada em parte dos CEPs)
+    try {
+      const r = await fetch('https://brasilapi.com.br/api/cep/v2/' + cep);
       if (r.ok){
         const j = await r.json();
         const c = j && j.location && j.location.coordinates;
@@ -5367,7 +5388,6 @@ async function enriquecerCEPs(ceps, onProgress){
           comCoord++;
           return;
         }
-        // sem coordenada, mas guarda rua/bairro (útil pra exibir) e marca como "sem coord precisa"
         CEP_PRECISO[cep] = { none:true, rua:(j&&j.street)||'', bairro:(j&&j.neighborhood)||'', cidade:(j&&j.city)||'' };
         return;
       }
