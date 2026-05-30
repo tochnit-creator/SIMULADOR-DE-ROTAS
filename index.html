@@ -1024,6 +1024,43 @@
     font-size:10.5px;color:var(--ink-mute);
     font-family:'JetBrains Mono',monospace;margin-top:2px;
   }
+  /* mini-mapa REAL (Leaflet) da rota manual */
+  .route-minimap{
+    margin:12px 0 4px;border:1px solid var(--line);border-radius:10px;
+    background:var(--panel-solid);padding:8px;position:relative;overflow:hidden;
+  }
+  .route-minimap-head{
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:10.5px;color:var(--ink-mute);margin-bottom:6px;
+    letter-spacing:0.3px;text-transform:uppercase;font-weight:600;
+  }
+  .route-minimap-head .mm-km{color:var(--ink-dim);font-family:'JetBrains Mono',monospace}
+  .route-minimap-canvas{
+    width:100%;height:240px;border-radius:8px;overflow:hidden;
+    border:1px solid var(--line);background:#0c0d0b;
+  }
+  .route-minimap-canvas .leaflet-tile{filter:invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.95)}
+  .route-minimap-canvas .leaflet-control-attribution{
+    background:rgba(12,13,11,0.7);color:var(--ink-mute);font-size:8px;
+  }
+  .route-minimap-canvas .leaflet-control-attribution a{color:var(--ink-dim)}
+  .route-minimap-empty{
+    width:100%;height:120px;display:flex;align-items:center;justify-content:center;
+    color:var(--ink-mute);font-size:12px;border:1px dashed var(--line);border-radius:8px;
+  }
+  .mm-stop-marker{
+    display:flex;align-items:center;justify-content:center;
+    width:22px;height:22px;border-radius:50%;
+    color:#0c0d0b;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;
+    border:2px solid #0c0d0b;box-shadow:0 1px 4px rgba(0,0,0,0.5);
+  }
+  .route-minimap-legenda{
+    display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;
+    font-size:9.5px;color:var(--ink-mute);
+  }
+  .route-minimap-legenda span{display:inline-flex;align-items:center;gap:4px}
+  .mm-dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+
   .route-tempo-breakdown{
     margin-top:10px;
     padding:9px 13px;
@@ -5557,8 +5594,15 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
   try {
     if (typeof qrcode !== 'undefined'){
       const origem = (APP_CONFIG.endereco || 'Av. Guaraciaba 313, Mauá-SP, 09370-840').trim();
+      // Monta cada parada como "CEP, Cidade, SP, Brasil" — CEP sozinho às vezes
+      // não é reconhecido pelo Maps (vira "lugar não encontrado"). Com cidade + UF resolve.
       const paradasCep = peds
-        .map(p => (p.cepFmt || p.cep || '').toString().trim())
+        .map(p => {
+          const cep = (p.cepFmt || p.cep || '').toString().trim();
+          if (!cep) return '';
+          const cidade = (p.cidade || '').toString().trim();
+          return cidade ? `${cep}, ${cidade}, SP` : `${cep}, SP`;
+        })
         .filter(Boolean);
       if (paradasCep.length){
         const segmentos = [origem, ...paradasCep].map(s => encodeURIComponent(s));
@@ -5567,7 +5611,7 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
         qrRota.addData(rotaUrl);
         qrRota.make();
         const qrDataUrl = qrRota.createDataURL(4, 0);
-        const qrSize = 22;
+        const qrSize = 25;
         const qrX = PW - M - 3 - qrSize;
         const qrYtop = M + 3;
         // moldura clarinha
@@ -6401,6 +6445,9 @@ function renderPoolRotasManuais(){
   // listeners dos cards
   ROTAS_MANUAIS.forEach(r => attachListenersRotaPool(r));
 
+  // desenha o mini-mapa real (Leaflet) de cada rota
+  ROTAS_MANUAIS.forEach(r => { try { initMiniMapa(r); } catch(e){ console.error('minimapa', e); } });
+
   // botão unificar selecionadas
   document.getElementById('btnUnificarSelecionadas')?.addEventListener('click', unificarRotasSelecionadas);
 
@@ -6412,6 +6459,127 @@ function renderPoolRotasManuais(){
       renderPoolRotasManuais();
     }
   });
+}
+
+// ===== MINI-MAPA "TEIA" DA ROTA (pré-visualização ao vivo) =====
+// Desenha a base + cada parada na ordem da rota, ligadas por linhas (o "percurso").
+// Usa as coordenadas reais de cada CEP (getCoordsFromCep). Como os dados de CEP são
+// por região, paradas do mesmo bairro caem no mesmo ponto — então as espalhamos
+// num pequeno leque ao redor do centro, na ordem da visita, pra cada uma ficar visível.
+// ===== MINI-MAPA REAL DA ROTA (Leaflet, com ruas) — pré-visualização ao vivo =====
+// Retorna só o container; o mapa é desenhado por initMiniMapa() depois do card entrar no DOM.
+const _miniMapas = {}; // rotaId -> instância Leaflet (pra destruir/recriar)
+
+function miniMapaTeiaSVG(rota){
+  const peds = rota.pedidos || [];
+  const temCoord = peds.some(p => (typeof getCoordsFromCep === 'function') && getCoordsFromCep(p.cep5));
+  const kmTxt = (rota.foiOtimizada && rota.kmOtimizado>0) ? `${Math.round(rota.kmOtimizado)} km` : `${peds.length} paradas`;
+  if (!temCoord){
+    return `
+      <div class="route-minimap">
+        <div class="route-minimap-head"><span>🗺 Prévia da rota no mapa</span></div>
+        <div class="route-minimap-empty">adicione paradas com CEP pra ver no mapa</div>
+      </div>`;
+  }
+  return `
+    <div class="route-minimap">
+      <div class="route-minimap-head">
+        <span>🗺 Prévia da rota no mapa · atualiza ao montar</span>
+        <span class="mm-km">${peds.length} paradas · ${kmTxt}</span>
+      </div>
+      <div class="route-minimap-canvas" id="minimap-${rota.id}"></div>
+      <div class="route-minimap-legenda">
+        <span><span class="mm-dot" style="background:var(--accent)"></span> parada (nº = ordem)</span>
+        <span><span class="mm-dot" style="background:var(--accent-2)"></span> pesado</span>
+        <span><span class="mm-dot" style="background:#fff;border:1px solid var(--accent)"></span> base</span>
+      </div>
+    </div>`;
+}
+
+// desenha (ou redesenha) o mapa Leaflet de uma rota dentro do seu container
+function initMiniMapa(rota){
+  if (typeof L === 'undefined') return;
+  const el = document.getElementById('minimap-' + rota.id);
+  if (!el) return;
+
+  // destrói instância anterior (evita vazamento ao re-renderizar)
+  if (_miniMapas[rota.id]){
+    try { _miniMapas[rota.id].remove(); } catch(e){}
+    delete _miniMapas[rota.id];
+  }
+
+  const BASE_COORD = [-23.6680, -46.4615];
+  const map = L.map(el, {
+    zoomControl: false, attributionControl: true,
+    dragging: true, scrollWheelZoom: false, doubleClickZoom: true,
+  }).setView(BASE_COORD, 11);
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18, attribution: '© OpenStreetMap',
+  }).addTo(map);
+  _miniMapas[rota.id] = map;
+
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#d4ff3f';
+  const accent2 = getComputedStyle(document.documentElement).getPropertyValue('--accent-2').trim() || '#ff7847';
+
+  const pontos = [BASE_COORD];
+  const todas = [];
+  const cont = {}; // key -> quantas vezes já apareceu (pra espalhar repetidos)
+  const peds = rota.pedidos || [];
+
+  peds.forEach((p, i) => {
+    const c = getCoordsFromCep(p.cep5);
+    if (!c) return;
+    const key = `${c.lat.toFixed(4)},${c.lng.toFixed(4)}`;
+    let lat = c.lat, lng = c.lng;
+    const jaTem = cont[key] || 0;
+    if (jaTem){
+      // espalha em espiral curta ao redor do ponto da região (CEPs do mesmo bairro)
+      const ang = jaTem * 1.1, raio = 0.0035 * (1 + Math.floor(jaTem/8));
+      lat += Math.sin(ang) * raio;
+      lng += Math.cos(ang) * raio;
+    }
+    cont[key] = jaTem + 1;
+    pontos.push([lat, lng]);
+    todas.push([lat, lng]);
+
+    const pesado = p.pesado || (p.pedidosAgrupados && p.pedidosAgrupados.some(x=>x.pesado));
+    const ordem = pontos.length - 1;
+    const icon = L.divIcon({
+      html: `<div class="mm-stop-marker" style="background:${pesado?accent2:accent}">${ordem}</div>`,
+      className: 'mm-stop-icon', iconSize:[22,22], iconAnchor:[11,11],
+    });
+    const m = L.marker([lat,lng], {icon}).addTo(map);
+    m.bindPopup(`
+      <b>${p.cliente || '(sem cliente)'}</b>
+      <div class="pop-row"><span>Parada</span><span>${ordem} de ${peds.length}</span></div>
+      <div class="pop-row"><span>CEP</span><span>${p.cepFmt || p.cep || '—'}</span></div>
+      <div class="pop-row"><span>Cidade</span><span>${p.cidade || '—'}</span></div>
+      <div class="pop-row"><span>Valor</span><span>${p.valor?fmtBRL(p.valor):'—'}</span></div>
+      ${pesado ? '<div class="pop-row"><span>Peso</span><span style="color:#ff7847;font-weight:700">PESADO</span></div>' : ''}
+    `);
+  });
+
+  pontos.push(BASE_COORD); // volta à base
+
+  if (pontos.length > 2){
+    L.polyline(pontos, { color: accent, weight: 3, opacity: 0.75, lineJoin:'round', lineCap:'round' }).addTo(map);
+  }
+
+  // marker da base
+  const baseIcon = L.divIcon({
+    html: '<div style="background:#fff;color:#000;padding:4px 9px;border-radius:12px;font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.6);border:2px solid '+accent+'">▼ BASE</div>',
+    className: 'mm-base-marker', iconSize:[70,24], iconAnchor:[35,12],
+  });
+  L.marker(BASE_COORD, {icon: baseIcon, zIndexOffset: 1000}).addTo(map);
+
+  if (todas.length){
+    try {
+      const bounds = L.latLngBounds([BASE_COORD, ...todas]);
+      map.fitBounds(bounds, { padding:[28,28], maxZoom: 13 });
+    } catch(e){}
+  }
+  setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, 80);
 }
 
 function renderCardRotaManualPool(rota){
@@ -6481,6 +6649,8 @@ function renderCardRotaManualPool(rota){
         <span class="tempo-tag">📦 ${tempo.minutosParadas}min em paradas</span>
         <span class="tempo-tag">🕐 saída ${tempo.horaSaida} · retorno previsto ${tempo.horaRetorno}</span>
       </div>
+
+      ${miniMapaTeiaSVG(rota)}
 
       <!-- container de sugestões (preenchido sob demanda) -->
       <div class="sugestoes-container hidden" id="sugest-${rota.id}"></div>
