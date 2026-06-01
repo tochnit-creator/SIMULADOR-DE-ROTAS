@@ -5853,7 +5853,7 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
       const paradas = peds.map(p => {
         const c = (typeof getCoordsMelhor === 'function') ? getCoordsMelhor(p.cep, p.cep5) : null;
         if (c && isFinite(c.lat) && isFinite(c.lng)){
-          return c.lat.toFixed(5) + ',' + c.lng.toFixed(5); // coordenada (precisa se disponível)
+          return c.lat.toFixed(4) + ',' + c.lng.toFixed(4); // 4 casas (~11m) = QR menos denso
         }
         // reserva final: CEP + cidade + UF
         const cep = (p.cepFmt || p.cep || '').toString().trim();
@@ -5862,28 +5862,37 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
         return cidade ? `${cep}, ${cidade}, SP` : `${cep}, SP`;
       }).filter(Boolean);
       if (paradas.length){
-        const segmentos = [BASE_LL, ...paradas, BASE_LL].map(s => encodeURIComponent(s));
+        // O app do Google Maps lida bem com ~10 paradas por URL, e acima disso o QR
+        // fica denso demais pra ler. Então limitamos a 10 aqui (o restante o motorista
+        // pega pelos QRs de cada linha, que apontam pra porta exata).
+        const MAX_PARADAS_QR = 10;
+        const truncado = paradas.length > MAX_PARADAS_QR;
+        const usar = truncado ? paradas.slice(0, MAX_PARADAS_QR) : paradas;
+        const segmentos = [BASE_LL, ...usar, BASE_LL].map(s => encodeURIComponent(s));
         const rotaUrl = 'https://www.google.com/maps/dir/' + segmentos.join('/') + '?travelmode=driving';
-        const qrRota = qrcode(0, 'L'); // EC baixo = mais capacidade p/ muitos pontos
+        const qrRota = qrcode(0, 'L'); // EC baixo = mais capacidade
         qrRota.addData(rotaUrl);
         qrRota.make();
-        const qrDataUrl = qrRota.createDataURL(4, 0);
-        const qrSize = 25;
+        const qrDataUrl = qrRota.createDataURL(6, 4); // cell maior + quiet zone (4) = leitura fácil
+        const qrSize = 30;
         const qrX = PW - M - 3 - qrSize;
         const qrYtop = M + 3;
         // moldura clarinha
         doc.setDrawColor(...COR_LINE_SOFT);
         doc.setLineWidth(0.3);
-        doc.rect(qrX - 1.5, qrYtop - 1.5, qrSize + 3, qrSize + 7.5);
+        doc.rect(qrX - 1.5, qrYtop - 1.5, qrSize + 3, qrSize + 8);
         doc.addImage(qrDataUrl, 'PNG', qrX, qrYtop, qrSize, qrSize);
         doc.setFont('helvetica','bold');
-        doc.setFontSize(5.6);
+        doc.setFontSize(5.8);
         doc.setTextColor(...COR_INK_DIM);
-        doc.text('ROTA NO MAPA', qrX + qrSize/2, qrYtop + qrSize + 2.2, {align:'center'});
+        doc.text('ROTA NO MAPA', qrX + qrSize/2, qrYtop + qrSize + 2.4, {align:'center'});
         doc.setFont('helvetica','normal');
         doc.setFontSize(5);
         doc.setTextColor(...COR_INK_MUTE);
-        doc.text('aponte a câmera · ' + paradas.length + ' paradas', qrX + qrSize/2, qrYtop + qrSize + 4.6, {align:'center'});
+        const legenda = truncado
+          ? 'aponte a câmera · 1as ' + MAX_PARADAS_QR + ' de ' + paradas.length + ' paradas'
+          : 'aponte a câmera · ' + paradas.length + ' paradas';
+        doc.text(legenda, qrX + qrSize/2, qrYtop + qrSize + 5, {align:'center'});
       }
     }
   } catch(e){}
@@ -6188,15 +6197,28 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
         const ped = peds[data.row.index];
         if (ped && ped.cliente){
           try {
-            const queryParts = [ped.cliente, ped.cidade].filter(Boolean).join(', ');
-            const cepLimpo = (ped.cep || '').toString().replace(/\D/g,'');
-            const cepPart = cepLimpo ? ', ' + cepLimpo : '';
-            const url = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(queryParts + cepPart);
+            // monta a melhor query: endereço EXATO da aba clientes quando existe;
+            // senão cai no cliente + cidade + cep (comportamento antigo)
+            let query;
+            if (ped.enderecoCliente){
+              let linha = ped.enderecoCliente;
+              if (ped.numeroCliente) linha += ', ' + ped.numeroCliente;
+              if (ped.bairroCliente) linha += ' - ' + ped.bairroCliente;
+              if (ped.cidade) linha += ', ' + ped.cidade;
+              const cepLimpo = (ped.cep || '').toString().replace(/\D/g,'');
+              if (cepLimpo) linha += ', ' + cepLimpo;
+              query = linha + ', Brasil';
+            } else {
+              const cepLimpo = (ped.cep || '').toString().replace(/\D/g,'');
+              const base = [ped.cliente, ped.cidade].filter(Boolean).join(', ');
+              query = base + (cepLimpo ? ', ' + cepLimpo : '');
+            }
+            const url = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(query);
             if (typeof qrcode !== 'undefined'){
-              const qr = qrcode(0, 'M');
+              const qr = qrcode(0, 'L');
               qr.addData(url);
               qr.make();
-              const dataUrl = qr.createDataURL(4, 0);
+              const dataUrl = qr.createDataURL(4, 2); // margin 2 = quiet zone p/ leitura
               const qrSize = Math.min(data.cell.height - 2, data.cell.width - 2, 12);
               const cx = data.cell.x + (data.cell.width - qrSize) / 2;
               const cy = data.cell.y + (data.cell.height - qrSize) / 2;
