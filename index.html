@@ -5981,68 +5981,82 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
   y += blocoH3 + 4;
 
   // ===================================================================
-  // BLOCO 3.5: ROTA NO MAPA — até 3 QRs, um por trecho de 10 paradas.
-  // Cada QR abre a PÁGINA DA ROTA já filtrada naquelas paradas, com o
-  // endereço EXATO da aba clientes. O 3º trecho absorve o que passar de 30
-  // (a página fatia sozinha de 10 em 10), então 3 QRs cobrem qualquer rota.
+  // BLOCO 3.5: ROTA NO MAPA — 1 QR por trecho de 10 paradas, ABRINDO O
+  // GOOGLE MAPS DIRETO (sem página intermediária). Cada QR leva os endereços
+  // EXATOS (rua, número, CEP) daquele trecho. Até 3 por linha; se a rota tiver
+  // mais de 30 paradas, quebra em mais linhas de QRs automaticamente.
   // ===================================================================
   try {
-    if (typeof qrcode !== 'undefined'){
-      const cclisRota = peds.map(p => normCod(p.ccli)).filter(Boolean);
-      if (cclisRota.length){
-        const nomeRota = (rota.nome || 'Rota').toString().substring(0, 40);
-        const N = 10; // paradas por trecho
-        const trechos = [];
-        if (cclisRota.length <= N){
-          trechos.push({ ini:1, fim:cclisRota.length, cclis:cclisRota });
-        } else if (cclisRota.length <= N*2){
-          trechos.push({ ini:1,   fim:N,                 cclis:cclisRota.slice(0, N) });
-          trechos.push({ ini:N+1, fim:cclisRota.length,  cclis:cclisRota.slice(N) });
-        } else {
-          trechos.push({ ini:1,     fim:N,                cclis:cclisRota.slice(0, N) });
-          trechos.push({ ini:N+1,   fim:N*2,              cclis:cclisRota.slice(N, N*2) });
-          trechos.push({ ini:N*2+1, fim:cclisRota.length, cclis:cclisRota.slice(N*2) }); // absorve o resto
+    if (typeof qrcode !== 'undefined' && peds.length){
+      const BASE_END = 'Av. Guaraciaba, 313, 09370-840'; // origem (Mauá)
+      // endereço enxuto e preciso p/ o Maps: rua, número, CEP (reserva: CEP + cidade)
+      const endMaps = (p) => {
+        if (p.temEnderecoCliente && (p.enderecoCliente || p.numeroCliente)){
+          let s = (p.enderecoCliente || '').toString().trim();
+          if (p.numeroCliente) s += (s ? ', ' : '') + String(p.numeroCliente).trim();
+          const cepd = (p.cep || '').toString().replace(/\D/g,'');
+          if (cepd) s += (s ? ', ' : '') + cepd;
+          return s.substring(0, 64);
         }
+        const cep = (p.cepFmt || p.cep || '').toString().trim();
+        const cidade = (p.cidade || '').toString().trim();
+        if (cep) return (cidade ? cep + ', ' + cidade : cep) + ', SP';
+        return cidade ? cidade + ', SP' : '';
+      };
 
-        // título do bloco (à esquerda)
-        doc.setTextColor(...COR_INK);
+      const N = 10; // paradas por trecho (limite prático do Google Maps)
+      const legs = [];
+      for (let i = 0; i < peds.length; i += N) legs.push(peds.slice(i, i + N));
+
+      // título do bloco
+      doc.setTextColor(...COR_INK);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(8.5);
+      doc.text('ROTA NO MAPA', M + 2, y + 1);
+      doc.setTextColor(...COR_INK_MUTE);
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(7);
+      doc.text('escaneie um trecho → abre o Google Maps no endereço exato', M + 2, y + 5);
+
+      const qrSize = 34, gap = 9, perRow = 3;
+      const qy0 = y + 8;
+      legs.forEach((leg, idx) => {
+        const row = Math.floor(idx / perRow);
+        const col = idx % perRow;
+        const nestaLinha = Math.min(perRow, legs.length - row * perRow);
+        const rowW = nestaLinha * qrSize + (nestaLinha - 1) * gap;
+        const startX = (PW - rowW) / 2;
+        const qx = startX + col * (qrSize + gap);
+        const qy = qy0 + row * (qrSize + 11);
+
+        const addrs = leg.map(endMaps).filter(Boolean);
+        const pts = [BASE_END, ...addrs].map(encodeURIComponent);
+        const url = 'https://www.google.com/maps/dir/' + pts.join('/') + '?travelmode=driving';
+        const qr = qrcode(0, 'L'); // EC baixo = cabe mais endereço
+        qr.addData(url);
+        qr.make();
+        const img = qr.createDataURL(5, 4); // quiet zone (4) = leitura fácil
+
+        doc.setDrawColor(...COR_LINE_SOFT);
+        doc.setLineWidth(0.3);
+        doc.rect(qx - 1, qy - 1, qrSize + 2, qrSize + 8.5);
+        doc.addImage(img, 'PNG', qx, qy, qrSize, qrSize);
         doc.setFont('helvetica','bold');
-        doc.setFontSize(8.5);
-        doc.text('ROTA NO MAPA', M + 2, y + 1);
-        doc.setTextColor(...COR_INK_MUTE);
+        doc.setFontSize(6.6);
+        doc.setTextColor(...COR_INK_DIM);
+        doc.text('TRECHO ' + (idx + 1), qx + qrSize/2, qy + qrSize + 3, {align:'center'});
         doc.setFont('helvetica','normal');
-        doc.setFontSize(7);
-        doc.text('escaneie um trecho por vez · abre o Maps no endereço exato', M + 2, y + 5);
+        doc.setFontSize(5.4);
+        doc.setTextColor(...COR_INK_MUTE);
+        const ini = idx * N + 1, fim = idx * N + leg.length;
+        doc.text('paradas ' + ini + '–' + fim + ' · ' + leg.length + ' entregas', qx + qrSize/2, qy + qrSize + 5.6, {align:'center'});
+      });
 
-        // QRs (à direita), lado a lado
-        const qrSize = 21, gap = 8;
-        const totalW = trechos.length * qrSize + (trechos.length - 1) * gap;
-        let qx = PW - M - 2 - totalW;
-        const qy = y + 8;
-        trechos.forEach((t, idx) => {
-          const url = ROTA_VIEWER_URL + '#n=' + encodeURIComponent(nomeRota) + '&c=' + t.cclis.join('.');
-          const qr = qrcode(0, 'M');
-          qr.addData(url);
-          qr.make();
-          const img = qr.createDataURL(6, 4); // quiet zone p/ leitura fácil
-          doc.setDrawColor(...COR_LINE_SOFT);
-          doc.setLineWidth(0.3);
-          doc.rect(qx - 1, qy - 1, qrSize + 2, qrSize + 8.5);
-          doc.addImage(img, 'PNG', qx, qy, qrSize, qrSize);
-          doc.setFont('helvetica','bold');
-          doc.setFontSize(6.4);
-          doc.setTextColor(...COR_INK_DIM);
-          doc.text('TRECHO ' + (idx+1), qx + qrSize/2, qy + qrSize + 2.8, {align:'center'});
-          doc.setFont('helvetica','normal');
-          doc.setFontSize(5.4);
-          doc.setTextColor(...COR_INK_MUTE);
-          doc.text('paradas ' + t.ini + '–' + t.fim + ' · ' + t.cclis.length + ' entregas', qx + qrSize/2, qy + qrSize + 5.2, {align:'center'});
-          qx += qrSize + gap;
-        });
-        y += qrSize + 13; // altura do bloco
-      }
+      const linhas = Math.ceil(legs.length / perRow);
+      y += 8 + linhas * (qrSize + 11);
     }
   } catch(e){}
+
 
   // ===================================================================
   // BLOCO 4: TABELA DE PARADAS (estilo planilha de fatura)
