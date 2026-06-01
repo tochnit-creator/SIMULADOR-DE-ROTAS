@@ -2653,6 +2653,69 @@
 // ---------- CONFIGURAÇÃO ----------
 const PONTO_SAIDA = { nome: 'Av. Guaraciaba 313, Mauá-SP', cep: 9370 };
 
+// ---------- BASE DE ENDEREÇOS POR CLIENTE (aba "clientes") ----------
+// Arquivo tem 2 abas: "CENTRAL DE VENDAS - TODOS" (pedidos) e "clientes" (endereços).
+// Na aba clientes as colunas são fixas:
+//   D = código do cliente (= CCLI nos pedidos)
+//   E = CEP   F = NÚMERO   G = BAIRRO   H = ENDEREÇO
+// Cruzamos o CCLI de cada pedido com o código aqui pra ter o endereço EXATO.
+let CLIENTES_MAP = {};          // código -> {cep, numero, bairro, endereco}
+let CLIENTES_CARREGADO = false; // a aba "clientes" foi encontrada?
+let SEM_ENDERECO = [];          // pedidos cujo CCLI não está na aba clientes
+
+function normCod(v){ return v == null ? '' : String(v).trim(); }
+
+// monta CLIENTES_MAP a partir de linhas (array-of-arrays) — serve p/ xlsx e p/ CSV
+function montarClientesDeAoa(aoa){
+  CLIENTES_MAP = {}; CLIENTES_CARREGADO = false;
+  if (!Array.isArray(aoa) || !aoa.length) return { ok:false, total:0 };
+  let total = 0;
+  for (const row of aoa){
+    if (!row) continue;
+    const cod = normCod(row[3]);                 // coluna D
+    if (!cod) continue;
+    if (/^(c[oó]digo|ccli|cliente|cod\.?|c[óo]d)\b/i.test(cod)) continue; // pula cabeçalho
+    const entrada = {
+      cep:      normCod(row[4]), // E
+      numero:   normCod(row[5]), // F
+      bairro:   normCod(row[6]), // G
+      endereco: normCod(row[7]), // H
+    };
+    CLIENTES_MAP[cod] = entrada;
+    const num = cod.replace(/\D/g,'');           // tolera zeros à esquerda
+    if (num) CLIENTES_MAP['#' + parseInt(num,10)] = entrada;
+    total++;
+  }
+  CLIENTES_CARREGADO = true;
+  return { ok:true, total };
+}
+
+// lê a aba "clientes" de um workbook (upload .xlsx)
+function lerAbaClientes(wb){
+  const nome = wb.SheetNames.find(n => /^\s*clientes?\s*$/i.test(n))
+            || wb.SheetNames.find(n => /clientes?/i.test(n));
+  if (!nome){ CLIENTES_MAP = {}; CLIENTES_CARREGADO = false; return { ok:false, total:0 }; }
+  const aoa = XLSX.utils.sheet_to_json(wb.Sheets[nome], { header:1, defval:null, raw:false });
+  return montarClientesDeAoa(aoa);
+}
+
+// retorna {cep, numero, bairro, endereco} do cliente, ou null se não estiver na aba
+function buscarEnderecoCliente(ccli){
+  const cod = normCod(ccli);
+  if (!cod) return null;
+  if (CLIENTES_MAP[cod]) return CLIENTES_MAP[cod];
+  const num = cod.replace(/\D/g,'');
+  if (num && CLIENTES_MAP['#' + parseInt(num,10)]) return CLIENTES_MAP['#' + parseInt(num,10)];
+  return null;
+}
+
+// qual aba tem os pedidos (CENTRAL DE VENDAS - TODOS) — nunca a "clientes"
+function acharAbaPedidos(wb){
+  let nome = wb.SheetNames.find(n => /central\s*de\s*vendas/i.test(n));
+  if (!nome) nome = wb.SheetNames.find(n => !/^\s*clientes?\s*$/i.test(n));
+  return nome || wb.SheetNames[0];
+}
+
 // ---------- IDENTIDADE DA EMPRESA (persistente em localStorage) ----------
 const SUPER_ABC_LOGO = 'data:image/jpeg;base64,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';
 const CONFIG_DEFAULT = {
@@ -3659,11 +3722,15 @@ function handleFile(file){
     try{
       const data = new Uint8Array(e.target.result);
       const wb = XLSX.read(data,{type:'array',cellDates:true});
-      const sh = wb.Sheets[wb.SheetNames[0]];
+      const resClientes = lerAbaClientes(wb);            // 1) base de endereços
+      const sh = wb.Sheets[acharAbaPedidos(wb)];         // 2) aba de pedidos
       // ler em formato array para tratar headers compostos
       const aoa = XLSX.utils.sheet_to_json(sh,{header:1,defval:null,raw:false});
       processData(aoa);
-      fileInfo.innerHTML = '✓ '+file.name+' · '+DADOS.length+' pedidos carregados';
+      const infoCli = resClientes.ok
+        ? ' · '+resClientes.total+' clientes na base de endereços'
+        : ' · <span style="color:var(--warn)">aba "clientes" não encontrada</span>';
+      fileInfo.innerHTML = '✓ '+file.name+' · '+DADOS.length+' pedidos carregados'+infoCli;
       uploadZone.classList.add('has-file');
     }catch(err){
       fileInfo.innerHTML = '<span style="color:var(--danger)">Erro: '+err.message+'</span>';
@@ -3679,6 +3746,27 @@ function handleFile(file){
 // Aceita o LINK CSV da planilha (Google) ou, se preferir, a URL de um app da web (Apps Script).
 let SHEET_WEBAPP_URL = localStorage.getItem('sheetWebAppUrl') || "";
 
+// link CSV da ABA CLIENTES (endereços). Já vem preenchido; pode trocar no localStorage.
+let CLIENTES_CSV_URL = localStorage.getItem('clientesCsvUrl') ||
+  'https://docs.google.com/spreadsheets/d/e/2PACX-1vSxEAkBRoho8JM35AZrHa6168qGit1_NE4o7VURcjaTGM5rEMWXk0bH6wu_4mDJdX8o6QeMMQc9QJxA/pub?gid=1133582447&single=true&output=csv';
+
+async function carregarClientesDoCSV(){
+  if (!CLIENTES_CSV_URL){ return { ok:false, total:0 }; }
+  try {
+    const resp = await fetch(CLIENTES_CSV_URL, { method:'GET' });
+    const texto = await resp.text();
+    if ((texto || '').trim().charAt(0) === '<'){
+      throw new Error('aba clientes fechada (pediu login)');
+    }
+    const wb = XLSX.read(texto, { type:'string' });
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:null, raw:false });
+    return montarClientesDeAoa(aoa);
+  } catch(e){
+    console.warn('carregarClientesDoCSV:', e);
+    return { ok:false, total:0, erro: e.message };
+  }
+}
+
 async function atualizarDaPlanilha(silencioso){
   let url = SHEET_WEBAPP_URL;
   if (!url){
@@ -3688,8 +3776,11 @@ async function atualizarDaPlanilha(silencioso){
     SHEET_WEBAPP_URL = url;
     localStorage.setItem('sheetWebAppUrl', url);
   }
-  fileInfo.innerHTML = '<span class="loading"></span> Buscando pedidos da planilha…';
+  fileInfo.innerHTML = '<span class="loading"></span> Buscando endereços e pedidos da planilha…';
   try{
+    // 1) base de endereços (aba clientes) ANTES dos pedidos, pra cruzar pelo CCLI
+    const resCli = await carregarClientesDoCSV();
+    // 2) pedidos
     const resp = await fetch(url, { method:'GET' });
     const texto = await resp.text();
     const ini = (texto || '').trim().charAt(0);
@@ -3714,7 +3805,10 @@ async function atualizarDaPlanilha(silencioso){
 
     if (!Array.isArray(aoa) || !aoa.length) throw new Error('a planilha voltou vazia');
     processData(aoa);
-    fileInfo.innerHTML = '✓ ' + DADOS.length + ' pedidos puxados da planilha · ' + new Date().toLocaleString('pt-BR');
+    const infoCli = resCli.ok
+      ? ' · ' + resCli.total + ' clientes na base'
+      : ' · <span style="color:var(--warn)">base de endereços indisponível</span>';
+    fileInfo.innerHTML = '✓ ' + DADOS.length + ' pedidos puxados' + infoCli + ' · ' + new Date().toLocaleString('pt-BR');
     uploadZone.classList.add('has-file');
   }catch(err){
     fileInfo.innerHTML = '<span style="color:var(--danger)">Erro ao atualizar: ' + err.message + '</span>';
@@ -3797,11 +3891,24 @@ function processData(aoa){
 
   // construir DADOS
   DADOS = [];
+  SEM_ENDERECO = [];
   for (let i=dataStart; i<aoa.length; i++){
     const r = aoa[i] || [];
     const pedido = r[idx.pedido];
     if (pedido == null || String(pedido).trim() === '') continue;
-    const cep5val = cep5(r[idx.cep]);
+    // ---- ENDEREÇO EXATO via aba "clientes" (cruzando pelo CCLI) ----
+    const ccliVal = r[idx.ccli] || '';
+    const endCliente = buscarEnderecoCliente(ccliVal);
+    // CEP de roteirização: prioriza o da aba clientes; senão usa o do pedido (reserva)
+    const cepRoteiro = (endCliente && endCliente.cep) ? endCliente.cep : r[idx.cep];
+    if (CLIENTES_CARREGADO && !endCliente){
+      SEM_ENDERECO.push({
+        ccli: normCod(ccliVal),
+        cliente: (r[idx.cliente] || '').toString().trim(),
+        pedido: String(pedido).trim(),
+      });
+    }
+    const cep5val = cep5(cepRoteiro);
     const zona = getZona(cep5val);
     // ---- análise da observação ----
     const obsRaw = r[idx.obs] || '';
@@ -3824,10 +3931,15 @@ function processData(aoa){
       retira: ehRetira,
       areaAtencao: areaAtenc, // {nome, motivo, cepIni, cepFim} ou null (manual)
       riscoOficial: riscoOf,  // {nivel, label, ocorrencias, bairro, cidade} ou null (base SSP)
-      ccli: r[idx.ccli] || '',
-      cep: r[idx.cep] || '',
+      ccli: ccliVal,
+      cep: cepRoteiro || '',
       cep5: cep5val,
-      cepFmt: fmtCep(r[idx.cep]),
+      cepFmt: fmtCep(cepRoteiro),
+      // endereço exato cruzado da aba "clientes" (null se o CCLI não está lá)
+      temEnderecoCliente: !!endCliente,
+      enderecoCliente: endCliente ? endCliente.endereco : '',
+      numeroCliente:   endCliente ? endCliente.numero   : '',
+      bairroCliente:   endCliente ? endCliente.bairro   : '',
       cliente: (r[idx.cliente] || '').toString(),
       valor: numBR(r[idx.valor]),
       itens: parseFloat(r[idx.itens]||0) || 0,
@@ -3983,6 +4095,31 @@ function validarDados(){
       severity:'warn', icon:'↻',
       title:`${semRota.length} pedido${semRota.length>1?'s':''} sem rota atribuída no ERP`,
       desc:`Não é problema — o sistema sugere a rota automaticamente. Só lembre de voltar pro ERP e atribuir antes da expedição.`,
+    });
+  }
+
+  // 8.5) Clientes sem endereço cadastrado na aba "clientes"
+  if (CLIENTES_CARREGADO && SEM_ENDERECO.length > 0){
+    const vistos = new Set(), unicos = [];
+    SEM_ENDERECO.forEach(s => {
+      const chave = s.ccli || s.cliente;
+      if (!vistos.has(chave)){ vistos.add(chave); unicos.push(s); }
+    });
+    const exemplos = unicos.slice(0,4)
+      .map(s => `CLIENTE ${s.cliente || ('CCLI '+s.ccli) || '?'} SEM DADOS DE ENDEREÇO NA PLANILHA`)
+      .join(' · ');
+    issues.push({
+      severity:'warn', icon:'📍',
+      title:`${unicos.length} cliente${unicos.length>1?'s':''} sem endereço na aba "clientes" (${SEM_ENDERECO.length} pedido${SEM_ENDERECO.length>1?'s':''})`,
+      desc:`Esses clientes não têm cadastro na aba <strong>clientes</strong>, então usei o CEP da CENTRAL DE VENDAS - TODOS (menos preciso). Cadastre o endereço na aba clientes pra roteirizar exato.`,
+      exemplos,
+    });
+  }
+  if (!CLIENTES_CARREGADO){
+    issues.push({
+      severity:'warn', icon:'⚠',
+      title:`Aba "clientes" não encontrada no arquivo`,
+      desc:`Sem ela, roteirizo pelo CEP que vier na CENTRAL DE VENDAS - TODOS. Pra ter endereço exato por cliente, inclua a aba "clientes".`,
     });
   }
 
@@ -5928,6 +6065,15 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
     if (p.temObsEndereco && p.enderecoExtraido){
       const endTrunc = p.enderecoExtraido.length > 90 ? p.enderecoExtraido.substring(0,88)+'…' : p.enderecoExtraido;
       clienteCompleto += '\n>> ENTREGAR EM: ' + endTrunc;
+    }
+    if (p.enderecoCliente || p.numeroCliente || p.bairroCliente){
+      const parts = [];
+      if (p.enderecoCliente) parts.push(p.enderecoCliente);
+      if (p.numeroCliente)   parts.push('nº ' + p.numeroCliente);
+      if (p.bairroCliente)   parts.push(p.bairroCliente);
+      let endFull = parts.join(', ');
+      if (endFull.length > 95) endFull = endFull.substring(0,93) + '…';
+      if (endFull) clienteCompleto += '\n>> END: ' + endFull;
     }
     const colPedido = p.ehAgrupada
       ? p.pedidosNumeros.join('\n')
