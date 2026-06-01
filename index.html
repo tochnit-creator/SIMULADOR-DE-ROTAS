@@ -6108,15 +6108,8 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
       const endTrunc = p.enderecoExtraido.length > 90 ? p.enderecoExtraido.substring(0,88)+'…' : p.enderecoExtraido;
       clienteCompleto += '\n>> ENTREGAR EM: ' + endTrunc;
     }
-    if (p.enderecoCliente || p.numeroCliente || p.bairroCliente){
-      const parts = [];
-      if (p.enderecoCliente) parts.push(p.enderecoCliente);
-      if (p.numeroCliente)   parts.push('nº ' + p.numeroCliente);
-      if (p.bairroCliente)   parts.push(p.bairroCliente);
-      let endFull = parts.join(', ');
-      if (endFull.length > 95) endFull = endFull.substring(0,93) + '…';
-      if (endFull) clienteCompleto += '\n>> END: ' + endFull;
-    }
+    // (O endereço da aba clientes NÃO é mais impresso aqui — fica só nos QRs.
+    //  PESADO e nível de RISCO continuam marcados no nome acima.)
     const colPedido = p.ehAgrupada
       ? p.pedidosNumeros.join('\n')
       : (p.pedido || '');
