@@ -2443,7 +2443,6 @@
               </div>
             </details>
           </div>
-          <div id="manualResult"></div>
         </div>
 
         <!-- SUB-VIEW: ROTAS FIXAS -->
@@ -2495,9 +2494,14 @@
               </div>
             </div>
             <div class="manual-hint">
-              💡 As rotas aplicadas aparecem no mesmo painel das rotas manuais (abaixo), onde você pode <strong>unificar romaneios</strong> e <strong>adicionar pedidos avulsos</strong>. Pedidos fora de todas as faixas continuam disponíveis nas sugestões automáticas e no manual.
+              💡 As rotas aplicadas aparecem no painel abaixo, onde você pode <strong>unificar romaneios</strong> e <strong>adicionar pedidos avulsos</strong>. Pedidos fora de todas as faixas continuam disponíveis nas sugestões automáticas e no manual.
             </div>
           </div>
+        </div>
+
+        <!-- PAINEL COMPARTILHADO: rotas montadas (manual + fixa) -->
+        <div id="poolCompartilhado" class="hidden">
+          <div id="manualResult"></div>
         </div>
       </div>
       <!-- fim view-rotas -->
@@ -6551,6 +6555,8 @@ document.querySelectorAll('.subtab').forEach(st => {
     document.getElementById('subview-auto').classList.toggle('hidden', alvo !== 'auto');
     document.getElementById('subview-manual').classList.toggle('hidden', alvo !== 'manual');
     document.getElementById('subview-fixa')?.classList.toggle('hidden', alvo !== 'fixa');
+    // painel de rotas montadas é compartilhado por manual + fixa
+    document.getElementById('poolCompartilhado')?.classList.toggle('hidden', !(alvo === 'manual' || alvo === 'fixa'));
     // popular o select de status do manual
     if (alvo === 'manual') popularStatusManual();
     if (alvo === 'fixa'){ popularStatusFixa(); renderFixaRegras(); }
@@ -6957,10 +6963,12 @@ function sugerirPedidosParaRota(rota){
 
 function renderPoolRotasManuais(){
   const cont = document.getElementById('manualResult');
+  const painel = document.getElementById('poolCompartilhado');
   if (!ROTAS_MANUAIS.length){
     cont.innerHTML = '';
     return;
   }
+  if (painel) painel.classList.remove('hidden'); // garante visível quando há rotas montadas
 
   // contadores gerais
   const valorTotalPool = ROTAS_MANUAIS.reduce((a,r) => a + r.pedidos.reduce((x,p)=>x+(p.valorTotal!=null?p.valorTotal:(p.valor||0)),0), 0);
