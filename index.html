@@ -859,6 +859,19 @@
     font-weight:600;
   }
 
+  /* ROTAS FIXAS */
+  .fixa-list{display:flex;flex-direction:column;gap:8px}
+  .fixa-item{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    border:1px solid var(--line);border-radius:12px;padding:11px 14px;background:rgba(255,255,255,0.015)}
+  .fixa-item-main{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .fixa-item-nome{font-weight:700;font-size:14.5px;color:var(--ink)}
+  .fixa-item-cep{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--ink-dim);
+    background:rgba(212,255,63,0.06);border:1px solid rgba(212,255,63,0.18);padding:2px 9px;border-radius:20px}
+  .fixa-count{font-size:11.5px;color:var(--ink-mute)}
+  .fixa-del{flex:none;background:transparent;border:1px solid var(--line);color:var(--ink-mute);
+    width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:13px;line-height:1;transition:all .15s}
+  .fixa-del:hover{border-color:var(--danger);color:var(--danger)}
+
   /* BUILDER MANUAL */
   .manual-builder{
     border:1px solid var(--line);
@@ -2334,6 +2347,7 @@
         <div class="subtabs">
           <button class="subtab active" data-subtab="auto">⚙ Sugestões automáticas</button>
           <button class="subtab" data-subtab="manual">✋ Montar rota manual</button>
+          <button class="subtab" data-subtab="fixa">📌 Rotas fixas</button>
         </div>
 
         <!-- SUB-VIEW: AUTOMÁTICA -->
@@ -2430,6 +2444,60 @@
             </details>
           </div>
           <div id="manualResult"></div>
+        </div>
+
+        <!-- SUB-VIEW: ROTAS FIXAS -->
+        <div id="subview-fixa" class="hidden">
+          <div class="manual-builder">
+            <div class="manual-head">
+              <h3>Rotas fixas por faixa de CEP</h3>
+              <p>Cadastre suas rotas recorrentes (nome + faixa de CEP). Toda vez que carregar a planilha, clique em <strong>"Aplicar rotas fixas"</strong> e os pedidos caem direto na rota certa. As regras ficam salvas neste navegador. Depois de aplicadas, dá pra unificar e adicionar pedidos avulsos normalmente.</p>
+            </div>
+
+            <!-- form de cadastro de regra -->
+            <div class="manual-form">
+              <div class="manual-field">
+                <label>Nome da rota</label>
+                <input type="text" id="fixaNome" placeholder="Ex: SBC" maxlength="40" />
+              </div>
+              <div class="manual-field manual-field-cep">
+                <label>CEP inicial (5 díg.)</label>
+                <input type="text" id="fixaCepIni" placeholder="09600" maxlength="5" inputmode="numeric" />
+              </div>
+              <div class="manual-field manual-field-cep">
+                <label>CEP final (5 díg.)</label>
+                <input type="text" id="fixaCepFim" placeholder="09899" maxlength="5" inputmode="numeric" />
+              </div>
+              <button id="btnAddFixa" class="route-action-btn">+ Adicionar regra</button>
+            </div>
+
+            <!-- lista de regras cadastradas -->
+            <div id="fixaRegras" style="margin:16px 0"></div>
+
+            <!-- filtro de status (reaproveita STATUS_SELECIONADOS do manual) -->
+            <div class="status-filter">
+              <div class="status-filter-head">
+                <label>Status incluídos ao aplicar as rotas fixas</label>
+                <div class="status-filter-actions">
+                  <button type="button" class="status-mini-btn" id="btnStatusFixaTodos">marcar todos</button>
+                  <button type="button" class="status-mini-btn" id="btnStatusFixaProntos">só prontos (EXPEDICAO + FATURAR)</button>
+                  <button type="button" class="status-mini-btn" id="btnStatusFixaNenhum">desmarcar todos</button>
+                </div>
+              </div>
+              <div id="statusChipsFixa" class="status-chips"></div>
+              <div class="status-filter-hint">💡 Mesmos status valem pra todas as rotas fixas ao aplicar. Padrão: só pedidos prontos.</div>
+            </div>
+
+            <div class="routes-toolbar" style="margin-top:16px">
+              <div class="toolbar-info" id="fixaInfo">Cadastre ao menos uma regra acima.</div>
+              <div class="toolbar-actions">
+                <button id="btnAplicarFixas" class="route-action-btn primary"><span>▶</span> Aplicar rotas fixas</button>
+              </div>
+            </div>
+            <div class="manual-hint">
+              💡 As rotas aplicadas aparecem no mesmo painel das rotas manuais (abaixo), onde você pode <strong>unificar romaneios</strong> e <strong>adicionar pedidos avulsos</strong>. Pedidos fora de todas as faixas continuam disponíveis nas sugestões automáticas e no manual.
+            </div>
+          </div>
         </div>
       </div>
       <!-- fim view-rotas -->
@@ -6482,8 +6550,10 @@ document.querySelectorAll('.subtab').forEach(st => {
     const alvo = st.dataset.subtab;
     document.getElementById('subview-auto').classList.toggle('hidden', alvo !== 'auto');
     document.getElementById('subview-manual').classList.toggle('hidden', alvo !== 'manual');
+    document.getElementById('subview-fixa')?.classList.toggle('hidden', alvo !== 'fixa');
     // popular o select de status do manual
     if (alvo === 'manual') popularStatusManual();
+    if (alvo === 'fixa'){ popularStatusFixa(); renderFixaRegras(); }
   });
 });
 
@@ -6681,6 +6751,173 @@ document.getElementById('btnMontarManual')?.addEventListener('click', () => {
   document.getElementById('manualCepFim').value = '';
   renderPoolRotasManuais();
 });
+
+// ===================================================================
+// ROTAS FIXAS — regras salvas (nome + faixa CEP) aplicadas em lote.
+// Cria rotas no MESMO pool ROTAS_MANUAIS, então herda unificação +
+// adição de pedidos avulsos. As regras ficam em localStorage.
+// ===================================================================
+let ROTAS_FIXAS = carregarRotasFixas();
+
+function carregarRotasFixas(){
+  try {
+    const raw = localStorage.getItem('rotasFixas');
+    if (raw){ const arr = JSON.parse(raw); if (Array.isArray(arr) && arr.length) return arr; }
+  } catch(e){}
+  // padrão inicial: as 4 rotas que o Gabriel pediu
+  return [
+    { nome:'Santo André',  cepIni:9000, cepFim:9299 },
+    { nome:'Mauá',         cepIni:9300, cepFim:9399 },
+    { nome:'SBC',          cepIni:9600, cepFim:9899 },
+    { nome:'Suzano/Mogi',  cepIni:8600, cepFim:8899 },
+  ];
+}
+function salvarRotasFixas(){
+  try { localStorage.setItem('rotasFixas', JSON.stringify(ROTAS_FIXAS)); } catch(e){}
+}
+const fmtCep5 = n => String(n).padStart(5,'0');
+
+function renderFixaRegras(){
+  const cont = document.getElementById('fixaRegras');
+  if (!cont) return;
+  if (!ROTAS_FIXAS.length){
+    cont.innerHTML = '<div class="manual-hint">Nenhuma regra cadastrada. Adicione acima (ex: SBC · 09600–09899).</div>';
+    return;
+  }
+  // contagem de pedidos por regra (se a planilha já estiver carregada)
+  const temDados = DADOS && DADOS.length;
+  cont.innerHTML = `
+    <div class="fixa-list">
+      ${ROTAS_FIXAS.map((r,i) => {
+        let cnt = '';
+        if (temDados){
+          const n = DADOS.filter(d => !d.retira && d.cep5 != null && d.cep5 >= r.cepIni && d.cep5 <= r.cepFim).length;
+          cnt = `<span class="fixa-count">${n} pedido${n!==1?'s':''} na planilha</span>`;
+        }
+        return `
+          <div class="fixa-item">
+            <div class="fixa-item-main">
+              <span class="fixa-item-nome">${r.nome}</span>
+              <span class="fixa-item-cep">CEP ${fmtCep5(r.cepIni)} – ${fmtCep5(r.cepFim)}</span>
+              ${cnt}
+            </div>
+            <button class="fixa-del" data-i="${i}" title="Remover regra">✕</button>
+          </div>`;
+      }).join('')}
+    </div>`;
+  cont.querySelectorAll('.fixa-del').forEach(b => {
+    b.addEventListener('click', () => {
+      const i = parseInt(b.dataset.i,10);
+      ROTAS_FIXAS.splice(i,1);
+      salvarRotasFixas();
+      renderFixaRegras();
+    });
+  });
+  const info = document.getElementById('fixaInfo');
+  if (info) info.textContent = `${ROTAS_FIXAS.length} rota${ROTAS_FIXAS.length>1?'s':''} fixa${ROTAS_FIXAS.length>1?'s':''} cadastrada${ROTAS_FIXAS.length>1?'s':''}.`;
+}
+
+// adicionar regra
+document.getElementById('btnAddFixa')?.addEventListener('click', () => {
+  const nome = (document.getElementById('fixaNome').value || '').trim();
+  const ini = (document.getElementById('fixaCepIni').value || '').replace(/\D/g,'');
+  const fim = (document.getElementById('fixaCepFim').value || '').replace(/\D/g,'');
+  if (!nome){ alert('Dê um nome à rota fixa.'); return; }
+  if (ini.length < 3 || fim.length < 3){ alert('Informe CEP inicial e final (mín. 3 dígitos).'); return; }
+  const cepIni = parseInt(ini.padEnd(5,'0').substring(0,5),10);
+  const cepFim = parseInt(fim.padEnd(5,'9').substring(0,5),10);
+  if (cepIni > cepFim){ alert('O CEP inicial deve ser menor que o final.'); return; }
+  ROTAS_FIXAS.push({ nome, cepIni, cepFim });
+  salvarRotasFixas();
+  document.getElementById('fixaNome').value = '';
+  document.getElementById('fixaCepIni').value = '';
+  document.getElementById('fixaCepFim').value = '';
+  renderFixaRegras();
+});
+
+// aplicar todas as rotas fixas de uma vez
+document.getElementById('btnAplicarFixas')?.addEventListener('click', () => {
+  if (!DADOS.length){ alert('Carregue uma planilha primeiro.'); return; }
+  if (!ROTAS_FIXAS.length){ alert('Cadastre ao menos uma rota fixa.'); return; }
+  const usarFiltro = STATUS_SELECIONADOS && STATUS_SELECIONADOS.size > 0;
+
+  let criadas = 0, totalPedidos = 0, jaExistiam = 0, vazias = 0;
+  ROTAS_FIXAS.forEach(regra => {
+    // não recriar uma rota fixa de mesmo nome já presente no pool
+    if (ROTAS_MANUAIS.some(r => r.nome === regra.nome)){ jaExistiam++; return; }
+    const alocados = getPedidosAlocados(); // recalcula a cada regra (evita duplicar entre fixas)
+    const candidatos = DADOS.filter(d => {
+      if (d.retira) return false;
+      if (d.cep5 == null) return false;
+      if (d.cep5 < regra.cepIni || d.cep5 > regra.cepFim) return false;
+      if (usarFiltro && !STATUS_SELECIONADOS.has(d.status)) return false;
+      if (alocados.has(d.pedido)) return false;
+      return true;
+    });
+    if (!candidatos.length){ vazias++; return; }
+
+    const paradas = agruparParadas(candidatos);
+    const otim = otimizarSequencia(paradas);
+    const tipoCount = {};
+    candidatos.forEach(d => { tipoCount[d.tipoZona] = (tipoCount[d.tipoZona]||0)+1; });
+    const tipoPredominante = Object.entries(tipoCount).sort((a,b)=>b[1]-a[1])[0][0] || 'CAPITAL_ABC';
+    const kmMax = Math.max(...candidatos.map(d=>d.kmZona||0));
+
+    ROTAS_MANUAIS.push({
+      id: 'fx_' + Date.now() + '_' + Math.random().toString(36).substr(2,5),
+      nome: regra.nome,
+      km: kmMax,
+      tipo: tipoPredominante,
+      pedidos: otim.pedidos,
+      foiOtimizada: otim.otimizada,
+      kmOtimizado: otim.kmTotal,
+      manual: true,
+      fixa: true,
+      faixaCep: `${fmtCep5(regra.cepIni)}–${fmtCep5(regra.cepFim)}`,
+    });
+    criadas++;
+    totalPedidos += candidatos.length;
+  });
+
+  renderPoolRotasManuais();
+  let msg = '';
+  if (criadas)    msg += `✓ ${criadas} rota${criadas>1?'s':''} fixa${criadas>1?'s':''} criada${criadas>1?'s':''} com ${totalPedidos} pedido${totalPedidos>1?'s':''}.\n`;
+  if (jaExistiam) msg += `• ${jaExistiam} já estava${jaExistiam>1?'m':''} no painel (não dupliquei).\n`;
+  if (vazias)     msg += `• ${vazias} sem pedidos livres na faixa.\n`;
+  if (!criadas && !jaExistiam) msg = 'Nenhum pedido livre encontrado nas faixas das rotas fixas (com os status marcados).';
+  alert(msg.trim());
+  renderFixaRegras();
+});
+
+// status chips da aba fixa (compartilha STATUS_SELECIONADOS com o manual)
+function popularStatusFixa(){
+  const cont = document.getElementById('statusChipsFixa');
+  if (!cont) return;
+  const contagem = {};
+  DADOS.forEach(d => { contagem[d.status] = (contagem[d.status]||0)+1; });
+  const statuses = Object.keys(contagem).sort();
+  if (!STATUS_SELECIONADOS || STATUS_SELECIONADOS.size === 0){
+    STATUS_SELECIONADOS = new Set(statuses.filter(s => STATUS_PRONTOS.includes(s)));
+    if (STATUS_SELECIONADOS.size === 0) statuses.forEach(s => STATUS_SELECIONADOS.add(s));
+  }
+  const render = () => {
+    cont.innerHTML = statuses.map(s => {
+      const on = STATUS_SELECIONADOS.has(s);
+      return `<button type="button" class="status-chip ${on?'on':''}" data-s="${s}">${s} <span class="chip-n">${contagem[s]}</span></button>`;
+    }).join('');
+    cont.querySelectorAll('.status-chip').forEach(ch => {
+      ch.addEventListener('click', () => {
+        const s = ch.dataset.s;
+        if (STATUS_SELECIONADOS.has(s)) STATUS_SELECIONADOS.delete(s); else STATUS_SELECIONADOS.add(s);
+        render();
+      });
+    });
+  };
+  render();
+  document.getElementById('btnStatusFixaTodos')?.addEventListener('click', () => { statuses.forEach(s=>STATUS_SELECIONADOS.add(s)); render(); });
+  document.getElementById('btnStatusFixaProntos')?.addEventListener('click', () => { STATUS_SELECIONADOS = new Set(statuses.filter(s=>STATUS_PRONTOS.includes(s))); render(); });
+  document.getElementById('btnStatusFixaNenhum')?.addEventListener('click', () => { STATUS_SELECIONADOS.clear(); render(); });
+}
 
 // === SUGERIR PEDIDOS PRA AGREGAR EM UMA ROTA ABAIXO DO MÍNIMO ===
 function sugerirPedidosParaRota(rota){
