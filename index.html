@@ -5933,14 +5933,13 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
   // BLOCO 1: DADOS DO DOCUMENTO (3 colunas em caixas)
   // ===================================================================
   const blocoH1 = 14;
-  const col3W = (W - 4) / 3;
+  const col2W = (W - 2) / 2;
 
   // caixa esquerda: Nº Romaneio
-  drawCampoFatura(doc, M + 2, y, col3W - 1, blocoH1, 'Nº ROMANEIO', `${String(pageNum).padStart(4,'0')} / ${String(totalPages).padStart(4,'0')}`, COR_INK, COR_INK_DIM, COR_LINE_SOFT);
-  // caixa centro: Data emissão
-  drawCampoFatura(doc, M + 2 + col3W + 0.5, y, col3W - 1, blocoH1, 'DATA DE EMISSÃO', `${now.data}  às  ${now.hora}`, COR_INK, COR_INK_DIM, COR_LINE_SOFT);
-  // caixa direita: Status (com cor)
-  drawCampoFaturaStatus(doc, M + 2 + 2*(col3W + 0.5), y, col3W - 1, blocoH1, 'SITUAÇÃO DA ROTA', status, statusColor);
+  drawCampoFatura(doc, M + 2, y, col2W - 1, blocoH1, 'Nº ROMANEIO', `${String(pageNum).padStart(4,'0')} / ${String(totalPages).padStart(4,'0')}`, COR_INK, COR_INK_DIM, COR_LINE_SOFT);
+  // caixa direita: Data emissão
+  drawCampoFatura(doc, M + 2 + col2W + 0.5, y, col2W - 1, blocoH1, 'DATA DE EMISSÃO', `${now.data}  às  ${now.hora}`, COR_INK, COR_INK_DIM, COR_LINE_SOFT);
+  // (SITUAÇÃO DA ROTA removida do romaneio a pedido)
 
   y += blocoH1 + 3;
 
@@ -5999,15 +5998,14 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
   // BLOCO 3: TOTALIZADORES (4 caixas iguais estilo fatura)
   // ===================================================================
   const blocoH3 = 14;
-  const col4W = (W - 6) / 4;
+  const col3bW = (W - 4) / 3;
   const kmTotal = rota.foiOtimizada && rota.kmOtimizado > 0
     ? rota.kmOtimizado
     : (rota.km*2 + Math.max(0, peds.length-1)*1.2 + (rota.combinada?(rota.zonasOrigem.length-1)*5:0));
 
-  drawCampoFatura(doc, M + 2,                    y, col4W - 0.5, blocoH3, 'QTDE. PARADAS', temAgrupamento ? `${qtdParadas} (${qtdPedidos} ped.)` : String(qtdParadas), COR_INK, COR_INK_DIM, COR_LINE_SOFT);
-  drawCampoFatura(doc, M + 2 + col4W + 0.5,      y, col4W - 0.5, blocoH3, 'VALOR TOTAL',  fmtBRL(totV),         COR_INK, COR_INK_DIM, COR_LINE_SOFT);
-  drawCampoFatura(doc, M + 2 + 2*(col4W + 0.5),  y, col4W - 0.5, blocoH3, 'QTDE. ITENS',  fmtInt(totI),         COR_INK, COR_INK_DIM, COR_LINE_SOFT);
-  drawCampoFatura(doc, M + 2 + 3*(col4W + 0.5),  y, col4W - 0.5, blocoH3, 'DISTÂNCIA EST.', Math.round(kmTotal) + ' km', COR_INK, COR_INK_DIM, COR_LINE_SOFT);
+  drawCampoFatura(doc, M + 2,                     y, col3bW - 1, blocoH3, 'QTDE. PARADAS', temAgrupamento ? `${qtdParadas} (${qtdPedidos} ped.)` : String(qtdParadas), COR_INK, COR_INK_DIM, COR_LINE_SOFT);
+  drawCampoFatura(doc, M + 2 + col3bW + 0.5,      y, col3bW - 1, blocoH3, 'QTDE. ITENS',  fmtInt(totI),         COR_INK, COR_INK_DIM, COR_LINE_SOFT);
+  drawCampoFatura(doc, M + 2 + 2*(col3bW + 0.5),  y, col3bW - 1, blocoH3, 'DISTÂNCIA EST.', Math.round(kmTotal) + ' km', COR_INK, COR_INK_DIM, COR_LINE_SOFT);
 
   y += blocoH3 + 4;
 
@@ -6152,14 +6150,13 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
       clienteCompleto,
       truncarTexto(p.cidade || '', 14),
       p.horario && p.horario.restrito ? p.horario.label : '',
-      (p.valorTotal!=null?p.valorTotal:p.valor) ? fmtBRL(p.valorTotal!=null?p.valorTotal:p.valor) : '—',
       '', // recebido
     ];
   });
 
   doc.autoTable({
     startY: y,
-    head: [['#', 'PEDIDO', 'CEP', 'QR', 'CLIENTE / DESTINATÁRIO', 'CIDADE', 'JANELA', 'VALOR (R$)', 'RECEBIDO POR']],
+    head: [['#', 'PEDIDO', 'CEP', 'QR', 'CLIENTE / DESTINATÁRIO', 'CIDADE', 'JANELA', 'RECEBIDO POR']],
     body: tabelaDados,
     margin: { left: M + 2, right: M + 2 },
     tableLineColor: COR_LINE,
@@ -6193,8 +6190,7 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
       4: { cellWidth: 'auto', fontStyle:'bold' },
       5: { cellWidth: 22, textColor: COR_INK_DIM, fontSize: 7.5 },
       6: { cellWidth: 18, fontSize: 7, fontStyle:'bold', textColor:[194, 65, 12] },
-      7: { cellWidth: 22, halign:'right', fontStyle:'bold' },
-      8: { cellWidth: 26, fillColor:[253,253,250] },
+      7: { cellWidth: 32, fillColor:[253,253,250] },
     },
     didParseCell: (data) => {
       if (data.section !== 'body') return;
@@ -6216,7 +6212,7 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
       else if (ped.horario && ped.horario.restrito && classificaJanela(ped.horario) === 'manha') cor = [255, 247, 235];
       if (cor){
         Object.values(data.row.cells).forEach((c, ci) => {
-          if (ci === 8) return; // célula "recebido" fica branca p/ assinatura
+          if (ci === 7) return; // célula "recebido" fica branca p/ assinatura
           if (c && c.styles) c.styles.fillColor = cor;
         });
       }
@@ -6322,7 +6318,7 @@ function desenharPaginaRomaneio(doc, rota, pageNum, totalPages, now){
     ? `${qtdParadas} paradas (${qtdPedidos} pedidos)`
     : `${qtdParadas} paradas`;
   doc.text(
-    `${txtParadas}   |   ${fmtBRL(totV)}   |   ${fmtInt(totI)} itens   |   ${Math.round(kmTotal)} km`,
+    `${txtParadas}   |   ${fmtInt(totI)} itens   |   ${Math.round(kmTotal)} km`,
     M + 5, rodapeY + 8.5
   );
 
