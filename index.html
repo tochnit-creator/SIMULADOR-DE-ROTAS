@@ -2346,7 +2346,6 @@
         <!-- SUB-ABAS: Automática vs Manual -->
         <div class="subtabs">
           <button class="subtab active" data-subtab="auto">⚙ Sugestões automáticas</button>
-          <button class="subtab" data-subtab="manual">✋ Montar rota manual</button>
           <button class="subtab" data-subtab="fixa">📌 Rotas fixas</button>
         </div>
 
@@ -2377,72 +2376,6 @@
             <div class="status-filter-hint">💡 As sugestões automáticas vão considerar apenas pedidos com os status marcados. Padrão: só pedidos prontos.</div>
           </div>
           <div id="routeCards"></div>
-        </div>
-
-        <!-- SUB-VIEW: MANUAL -->
-        <div id="subview-manual" class="hidden">
-          <div class="manual-builder">
-            <div class="manual-head">
-              <h3>Montar rota manualmente por faixa de CEP</h3>
-              <p>Defina um intervalo de CEP (ex: 09200 a 09399), dê um nome à rota e gere. Os pedidos dentro da faixa entram automaticamente. Pedidos de retira são ignorados.</p>
-            </div>
-            <div class="manual-form">
-              <div class="manual-field">
-                <label>Nome da rota</label>
-                <input type="text" id="manualNome" placeholder="Ex: Rota Especial Mauá Centro" maxlength="60" />
-              </div>
-              <div class="manual-field manual-field-cep">
-                <label>CEP inicial (5 díg.)</label>
-                <input type="text" id="manualCepIni" placeholder="09200" maxlength="5" inputmode="numeric" />
-              </div>
-              <div class="manual-field manual-field-cep">
-                <label>CEP final (5 díg.)</label>
-                <input type="text" id="manualCepFim" placeholder="09399" maxlength="5" inputmode="numeric" />
-              </div>
-              <button id="btnMontarManual" class="route-action-btn primary">Montar rota</button>
-            </div>
-            <!-- Filtro de status (multi-select com chips) -->
-            <div class="status-filter">
-              <div class="status-filter-head">
-                <label>Status incluídos na rota e nas sugestões</label>
-                <div class="status-filter-actions">
-                  <button type="button" class="status-mini-btn" id="btnStatusTodos">marcar todos</button>
-                  <button type="button" class="status-mini-btn" id="btnStatusProntos">só prontos (EXPEDICAO + FATURAR)</button>
-                  <button type="button" class="status-mini-btn" id="btnStatusNenhum">desmarcar todos</button>
-                </div>
-              </div>
-              <div id="statusChips" class="status-chips"></div>
-              <div class="status-filter-hint">💡 Por padrão só pedidos prontos. Marque outros status se quiser incluí-los na rota e nas sugestões de agregar.</div>
-            </div>
-            <div class="manual-hint" id="manualHint">
-              💡 Dica: para "comece com 092 até 093", use CEP inicial <strong>09200</strong> e final <strong>09399</strong>.
-            </div>
-            <!-- Configurações de tempo (colapsável) -->
-            <details class="tempo-config">
-              <summary>⏱ Configurações de tempo médio (opcional)</summary>
-              <div class="tempo-config-grid">
-                <div class="manual-field">
-                  <label>Minutos por parada</label>
-                  <input type="number" id="cfgMinParada" value="15" min="1" max="120" />
-                  <span class="cfg-hint">tempo médio de descarga + assinatura</span>
-                </div>
-                <div class="manual-field">
-                  <label>Velocidade média (km/h)</label>
-                  <input type="number" id="cfgVelocidade" value="35" min="10" max="100" />
-                  <span class="cfg-hint">35 km/h é padrão ABC+Capital</span>
-                </div>
-                <div class="manual-field">
-                  <label>Horário de saída</label>
-                  <input type="time" id="cfgHoraSaida" value="07:00" />
-                  <span class="cfg-hint">pra estimar horário de retorno</span>
-                </div>
-              </div>
-              <div class="tempo-config-info">
-                💡 Quando alterar esses valores, clique em <strong>"Recalcular tempos"</strong> para atualizar todas as rotas já montadas.
-                <button id="btnRecalcularTempo" class="route-action-btn" style="margin-top:8px">↻ Recalcular tempos</button>
-              </div>
-            </details>
-          </div>
         </div>
 
         <!-- SUB-VIEW: ROTAS FIXAS -->
@@ -2486,6 +2419,32 @@
               <div id="statusChipsFixa" class="status-chips"></div>
               <div class="status-filter-hint">💡 Mesmos status valem pra todas as rotas fixas ao aplicar. Padrão: só pedidos prontos.</div>
             </div>
+
+            <!-- Configurações de tempo (colapsável) -->
+            <details class="tempo-config">
+              <summary>⏱ Configurações de tempo médio (opcional)</summary>
+              <div class="tempo-config-grid">
+                <div class="manual-field">
+                  <label>Minutos por parada</label>
+                  <input type="number" id="cfgMinParada" value="15" min="1" max="120" />
+                  <span class="cfg-hint">tempo médio de descarga + assinatura</span>
+                </div>
+                <div class="manual-field">
+                  <label>Velocidade média (km/h)</label>
+                  <input type="number" id="cfgVelocidade" value="35" min="10" max="100" />
+                  <span class="cfg-hint">35 km/h é padrão ABC+Capital</span>
+                </div>
+                <div class="manual-field">
+                  <label>Horário de saída</label>
+                  <input type="time" id="cfgHoraSaida" value="07:00" />
+                  <span class="cfg-hint">pra estimar horário de retorno</span>
+                </div>
+              </div>
+              <div class="tempo-config-info">
+                💡 Quando alterar esses valores, clique em <strong>"Recalcular tempos"</strong> para atualizar todas as rotas já montadas.
+                <button id="btnRecalcularTempo" class="route-action-btn" style="margin-top:8px">↻ Recalcular tempos</button>
+              </div>
+            </details>
 
             <div class="routes-toolbar" style="margin-top:16px">
               <div class="toolbar-info" id="fixaInfo">Cadastre ao menos uma regra acima.</div>
@@ -6553,12 +6512,9 @@ document.querySelectorAll('.subtab').forEach(st => {
     document.querySelectorAll('.subtab').forEach(x => x.classList.toggle('active', x===st));
     const alvo = st.dataset.subtab;
     document.getElementById('subview-auto').classList.toggle('hidden', alvo !== 'auto');
-    document.getElementById('subview-manual').classList.toggle('hidden', alvo !== 'manual');
     document.getElementById('subview-fixa')?.classList.toggle('hidden', alvo !== 'fixa');
     // painel de rotas montadas é compartilhado por manual + fixa
-    document.getElementById('poolCompartilhado')?.classList.toggle('hidden', !(alvo === 'manual' || alvo === 'fixa'));
-    // popular o select de status do manual
-    if (alvo === 'manual') popularStatusManual();
+    document.getElementById('poolCompartilhado')?.classList.toggle('hidden', !(alvo === 'fixa'));
     if (alvo === 'fixa'){ popularStatusFixa(); renderFixaRegras(); }
   });
 });
@@ -6903,7 +6859,7 @@ function popularStatusFixa(){
   DADOS.forEach(d => { contagem[d.status] = (contagem[d.status]||0)+1; });
   const statuses = Object.keys(contagem).sort();
   if (!STATUS_SELECIONADOS || STATUS_SELECIONADOS.size === 0){
-    STATUS_SELECIONADOS = new Set(statuses.filter(s => STATUS_PRONTOS.includes(s)));
+    STATUS_SELECIONADOS = new Set(statuses.filter(s => STATUS_PRONTOS.has(s)));
     if (STATUS_SELECIONADOS.size === 0) statuses.forEach(s => STATUS_SELECIONADOS.add(s));
   }
   const render = () => {
@@ -6921,7 +6877,7 @@ function popularStatusFixa(){
   };
   render();
   document.getElementById('btnStatusFixaTodos')?.addEventListener('click', () => { statuses.forEach(s=>STATUS_SELECIONADOS.add(s)); render(); });
-  document.getElementById('btnStatusFixaProntos')?.addEventListener('click', () => { STATUS_SELECIONADOS = new Set(statuses.filter(s=>STATUS_PRONTOS.includes(s))); render(); });
+  document.getElementById('btnStatusFixaProntos')?.addEventListener('click', () => { STATUS_SELECIONADOS = new Set(statuses.filter(s=>STATUS_PRONTOS.has(s))); render(); });
   document.getElementById('btnStatusFixaNenhum')?.addEventListener('click', () => { STATUS_SELECIONADOS.clear(); render(); });
 }
 
