@@ -2693,6 +2693,8 @@ const PONTO_SAIDA = { nome: 'Av. Guaraciaba 313, Mauá-SP', cep: 9370 };
 let CLIENTES_MAP = {};          // código -> {cep, numero, bairro, endereco}
 let CLIENTES_CARREGADO = false; // a aba "clientes" foi encontrada?
 let SEM_ENDERECO = [];          // pedidos cujo CCLI não está na aba clientes
+let COLUNAS_FALTANDO = [];      // colunas essenciais não encontradas no cabeçalho
+let COLUNAS_DETECTADAS = {};    // { campo: 'Título exato encontrado' }
 
 function normCod(v){ return v == null ? '' : String(v).trim(); }
 
@@ -3878,46 +3880,81 @@ window.addEventListener('load', ()=> atualizarDaPlanilha(true));
 function processData(aoa){
   // A primeira linha tem os headers principais.
   // A planilha pode ter 2 linhas de cabeçalho. Vou identificar a linha com "Pedido", "CEP", "Cliente".
-  let headerRow = 0, dataStart = 1;
-  for (let i=0; i<Math.min(5,aoa.length); i++){
-    const row = aoa[i] || [];
-    const txt = row.map(x => String(x||'').toLowerCase()).join('|');
-    if (txt.includes('pedido') && txt.includes('cep') && txt.includes('cliente')){
-      headerRow = i; dataStart = i+1; break;
-    }
-  }
-  const headers = (aoa[headerRow]||[]).map(h => String(h||'').trim());
+  // ===================================================================
+  // DETECÇÃO ROBUSTA DE COLUNAS — independe da ORDEM e tolera variações de
+  // nome (acento, maiúscula, abreviação, pontuação). Casa por sinônimos.
+  // ===================================================================
+  // normaliza: minúsculas, sem acento, pontuação -> espaço, espaços colapsados
+  const norm = s => String(s == null ? '' : s)
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 
-  // map column index by name
+  // sinônimos por campo (ordem = prioridade; mais específico primeiro)
+  const COLMAP = {
+    pedido:  ['pedido','no pedido','num pedido','numero pedido','nro pedido','documento','doc','nf'],
+    status:  ['status','situacao','situacao pedido','situacao do pedido'],
+    setor:   ['setor'],
+    ccli:    ['ccli','cod cliente','codigo cliente','codigo do cliente','cod cli','codcli','cliente codigo','codigo','cod'],
+    cep:     ['cep entrega','cep cliente','cep'],
+    cliente: ['nome cliente','razao social','cliente','destinatario','nome do cliente','nome'],
+    cidade:  ['cidade entrega','municipio','cidade'],
+    valor:   ['valor total','valor pedido','valor nf','total pedido','vl total','valor','vlr'],
+    itens:   ['qtd itens','qtde itens','quantidade itens','itens','volumes','qtd'],
+    rep:     ['representante','vendedor','rca'],
+    tv:      ['televendas','telemarketing'],
+    rota:    ['rota entrega','roteiro','rota'],
+    tipo:    ['tipo pedido','tipo de pedido','tipo'],
+    obs:     ['observacao interna','observacoes','observacao','obs'],
+    romaneio:['romaneio','carga'],
+    horario: ['horario recebimento','horario entrega','janela','horario','recebimento'],
+  };
+
+  // acha a LINHA do cabeçalho: a que casa mais campos-chave nas 12 primeiras linhas
+  const camposChave = ['pedido','cep','cliente','status','valor','ccli','cidade'];
+  let headerRow = 0, melhorScore = -1;
+  for (let i = 0; i < Math.min(12, aoa.length); i++){
+    const cells = (aoa[i] || []).map(norm);
+    let score = 0;
+    camposChave.forEach(campo => {
+      const syns = COLMAP[campo];
+      if (cells.some(c => c && syns.some(s => c === s || (' '+c+' ').includes(' '+s+' ')))) score++;
+    });
+    if (score > melhorScore){ melhorScore = score; headerRow = i; }
+  }
+  let dataStart = headerRow + 1;
+
+  const headersRaw  = (aoa[headerRow] || []).map(h => String(h == null ? '' : h).trim());
+  const headersNorm = headersRaw.map(norm);
+
+  // casa cada campo a UMA coluna (trava p/ não repetir índice). Tenta: exato ->
+  // começa-com -> palavra inteira -> parcial. Campos mais críticos primeiro.
   const idx = {};
-  const findCol = (...names) => {
-    for (const n of names){
-      const k = headers.findIndex(h => h.toLowerCase() === n.toLowerCase());
-      if (k>=0) return k;
-    }
-    // partial
-    for (const n of names){
-      const k = headers.findIndex(h => h.toLowerCase().includes(n.toLowerCase()));
-      if (k>=0) return k;
+  const usados = new Set();
+  COLUNAS_DETECTADAS = {};
+  const ordemBusca = ['pedido','ccli','cep','cliente','cidade','status','valor','itens','rep','tv','rota','tipo','obs','setor','romaneio','horario'];
+  const acharColuna = (campo) => {
+    const syns = COLMAP[campo] || [campo];
+    const testes = [
+      (h, s) => h === s,                                  // exato
+      (h, s) => h.startsWith(s + ' '),                    // começa com "s ..."
+      (h, s) => (' ' + h + ' ').includes(' ' + s + ' '),  // palavra inteira no meio
+      (h, s) => h.includes(s),                            // parcial (último recurso)
+    ];
+    for (const teste of testes){
+      for (const s of syns){
+        const k = headersNorm.findIndex((h, ki) => h && !usados.has(ki) && teste(h, s));
+        if (k >= 0){ usados.add(k); COLUNAS_DETECTADAS[campo] = headersRaw[k]; return k; }
+      }
     }
     return -1;
   };
-  idx.pedido = findCol('Pedido');
-  idx.status = findCol('Status');
-  idx.setor  = findCol('Setor');
-  idx.ccli   = findCol('CCLI');
-  idx.cep    = findCol('CEP');
-  idx.cliente= findCol('Cliente');
-  idx.valor  = findCol('Valor');
-  idx.itens  = findCol('Itens');
-  idx.rep    = findCol('Representante');
-  idx.tv     = findCol('Televendas');
-  idx.rota   = findCol('Rota');
-  idx.tipo   = findCol('Tipo Pedido','Tipo');
-  idx.obs    = findCol('Observação Interna','Observacao Interna','Observações');
-  idx.cidade = findCol('Cidade');
-  idx.romaneio = findCol('Romaneio');
-  idx.horario  = findCol('Horário Recebimento','Horario Recebimento','Janela','Horário','Horario');
+  ordemBusca.forEach(campo => { idx[campo] = acharColuna(campo); });
+
+  // diagnóstico: colunas essenciais que faltaram
+  const ESSENCIAIS = { pedido:'Pedido', cep:'CEP', cliente:'Cliente', ccli:'CCLI (código)', status:'Status', valor:'Valor' };
+  COLUNAS_FALTANDO = Object.keys(ESSENCIAIS).filter(c => idx[c] < 0).map(c => ESSENCIAIS[c]);
 
   // Detectar se a linha imediatamente após o header é uma segunda linha de cabeçalho:
   // critério: a célula da coluna "Pedido" está vazia/null nessa linha
@@ -4031,6 +4068,26 @@ function processData(aoa){
 function validarDados(){
   const issues = [];
   const total = DADOS.length;
+
+  // 0.0) Diagnóstico de colunas: o que o sistema reconheceu / o que faltou
+  if (COLUNAS_FALTANDO && COLUNAS_FALTANDO.length){
+    issues.push({
+      severity:'danger', icon:'⊘',
+      title:`${COLUNAS_FALTANDO.length} coluna(s) essencial(is) não reconhecida(s): ${COLUNAS_FALTANDO.join(', ')}`,
+      desc:`O sistema acha as colunas pelo NOME do cabeçalho (não importa a ordem). Essas não bateram com nenhum nome conhecido — confira se o título existe na aba "CENTRAL DE VENDAS - TODOS" ou me passe o nome exato que está na sua planilha pra eu incluir como sinônimo.`,
+    });
+  }
+  if (COLUNAS_DETECTADAS && Object.keys(COLUNAS_DETECTADAS).length){
+    const apelido = { pedido:'Pedido', status:'Status', ccli:'CCLI', cep:'CEP', cliente:'Cliente', cidade:'Cidade', valor:'Valor', itens:'Itens', rep:'Repres.', rota:'Rota', tipo:'Tipo', romaneio:'Romaneio', horario:'Horário', obs:'Obs', tv:'Televendas', setor:'Setor' };
+    const mapTxt = Object.keys(COLUNAS_DETECTADAS)
+      .map(c => `${apelido[c]||c} → "${COLUNAS_DETECTADAS[c]}"`)
+      .join(' · ');
+    issues.push({
+      severity:'ok', icon:'⊞',
+      title:`Colunas reconhecidas automaticamente (${Object.keys(COLUNAS_DETECTADAS).length})`,
+      desc:`Independente da ordem na planilha, o sistema mapeou: ${mapTxt}.`,
+    });
+  }
 
   // 0) Planilha vazia
   if (total === 0){
@@ -4160,8 +4217,10 @@ function validarDados(){
     });
   }
 
-  // 9) BOAS NOTÍCIAS — se tudo certo
-  if (issues.length === 0){
+  // 9) BOAS NOTÍCIAS — se não houver nenhum problema (warn/danger).
+  //    (o diagnóstico de colunas é 'ok', então não conta como problema)
+  const temProblema = issues.some(i => i.severity === 'warn' || i.severity === 'danger');
+  if (!temProblema){
     issues.push({
       severity:'ok', icon:'✓',
       title:`Planilha 100% íntegra — ${total} pedidos validados`,
@@ -4183,7 +4242,7 @@ function abrirModalValidacao(v){
   const m = document.getElementById('modalValidation');
   // só warns e oks? deixa fácil de continuar
   const temCritico = v.issues.some(i => i.severity === 'danger');
-  const tudoOk = v.issues.length === 1 && v.issues[0].severity === 'ok';
+  const tudoOk = v.issues.length > 0 && v.issues.every(i => i.severity === 'ok');
 
   document.getElementById('valTitle').textContent = tudoOk
     ? 'Tudo certo! Planilha validada com sucesso'
